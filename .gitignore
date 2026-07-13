@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# backup zips
+tool/文件/[备份]*/
+
+# old zip distribution
+tool.zip
+
+# runtime output
+mesh/
+*.obj
+输出/
+*_export/
