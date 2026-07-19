@@ -1,4 +1,4 @@
-# Sky-map-to-obj
+# Sky-Export-Tool
 
 从《光·遇》游戏地图中导出地形、场景模型和交互标记为 OBJ 文件。
 
@@ -23,7 +23,8 @@ tool/文件/
 ├── 启动.py              # ⭐ 单地图导出（交互式，推荐）
 ├── 批量地图转换.py       # 批量导出目录下所有地图
 ├── Sky_Bstbake.py       # 核心地形解析引擎（BstBaked.meshes → 顶点/索引）
-├── meshtoobj.py         # .mesh 模型解析器（v23–v32）
+├── sky_mesh_to_obj.py   # .mesh 模型解析器 v2（v31/v32，ZipPos/ZipUvs/LZ4）
+├── meshtoobj.py         # .mesh 模型解析器 旧版（v23–v30）
 ├── bintojson.py         # .bin ↔ .json 双向转换器
 ├── 单独启动Sky_Bstbake.py  # 独立地形导出
 ├── _meshopt/

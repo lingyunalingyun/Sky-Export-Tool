@@ -1,4 +1,4 @@
-# Sky-map-to-obj
+# Sky-Export-Tool
 
 Export terrain, scene models, and interaction markers from *Sky: Children of the Light* maps to OBJ.
 
@@ -23,7 +23,8 @@ tool/文件/
 ├── 启动.py              # Single map export (interactive, recommended)
 ├── 批量地图转换.py       # Batch export all maps in a directory
 ├── Sky_Bstbake.py       # Core terrain parser (BstBaked.meshes → vertices/indices)
-├── meshtoobj.py         # .mesh model parser (v23–v32)
+├── sky_mesh_to_obj.py   # .mesh model parser v2 (v31/v32, ZipPos/ZipUvs/LZ4)
+├── meshtoobj.py         # .mesh model parser legacy (v23–v30)
 ├── bintojson.py         # .bin ↔ .json converter (Objects.level.bin)
 ├── 单独启动Sky_Bstbake.py  # Standalone terrain-only export
 ├── _meshopt/
