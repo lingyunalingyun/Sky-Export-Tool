@@ -15,6 +15,8 @@ import threading
 import queue
 import json
 import subprocess
+import zipfile
+import tempfile
 from collections import OrderedDict
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
@@ -195,9 +197,12 @@ class SkyExportGUI:
         ttk.Button(
             dir_frame, text="扫描", width=6, command=self._scan_game_dir
         ).grid(row=0, column=3, padx=(4, 0))
+        ttk.Button(
+            dir_frame, text="APK", width=5, command=self._open_apk
+        ).grid(row=0, column=4, padx=(4, 0))
         ttk.Label(
             self.root,
-            text='选择游戏安装根目录 (如 "Sky Children of the Light")，点击「扫描」自动识别地图和 Mesh',
+            text='选择游戏安装根目录 或 APK 安装包，点击「扫描」自动识别地图和 Mesh',
             foreground="#6b7080",
             font=("Segoe UI", 8),
         ).pack(anchor="w", padx=(18, 0))
@@ -426,6 +431,64 @@ class SkyExportGUI:
         p = filedialog.askdirectory(title="选择输出目录")
         if p:
             self.output_var.set(p)
+
+    # ── APK extraction ────────────────────────────────────
+    def _open_apk(self):
+        p = filedialog.askopenfilename(
+            title="选择光遇 APK 安装包",
+            filetypes=[("APK / ZIP", "*.apk *.zip"), ("All files", "*.*")],
+        )
+        if not p:
+            return
+        if not zipfile.is_zipfile(p):
+            messagebox.showerror("错误", "所选文件不是有效的 APK/ZIP 文件")
+            return
+
+        self._log(f"正在解析 APK: {os.path.basename(p)}\n")
+        self.progress.configure(mode="determinate", value=0)
+        t = threading.Thread(target=self._do_extract_apk, args=(p,), daemon=True)
+        t.start()
+
+    def _do_extract_apk(self, apk_path):
+        try:
+            with zipfile.ZipFile(apk_path, 'r') as zf:
+                asset_entries = [e for e in zf.namelist() if e.startswith("assets/")]
+                if not asset_entries:
+                    self.log_queue.put("❌ APK 中未找到 assets/ 目录\n")
+                    self.root.after(0, self._apk_extract_done, None)
+                    return
+
+                extract_dir = tempfile.mkdtemp(prefix="skyvex_apk_")
+                fake_game = os.path.join(extract_dir, "data")
+                os.makedirs(fake_game, exist_ok=True)
+
+                total = len(asset_entries)
+                self.log_queue.put(f"解压 {total} 个资源文件...\n")
+                self.root.after(0, lambda: self.progress.configure(maximum=total))
+
+                for i, entry in enumerate(asset_entries):
+                    if entry.endswith('/'):
+                        continue
+                    dest = os.path.join(fake_game, entry)
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    with zf.open(entry) as src, open(dest, 'wb') as dst:
+                        dst.write(src.read())
+                    if i % 200 == 0:
+                        self.root.after(0, lambda v=i: self.progress.configure(value=v))
+
+                self.root.after(0, lambda: self.progress.configure(value=total))
+                self.log_queue.put(f"[OK] 解压完成 → {extract_dir}\n")
+                self.root.after(0, self._apk_extract_done, extract_dir)
+
+        except Exception as e:
+            self.log_queue.put(f"❌ APK 解压出错: {e}\n")
+            self.root.after(0, self._apk_extract_done, None)
+
+    def _apk_extract_done(self, extract_dir):
+        self.progress.configure(mode="indeterminate", value=0)
+        if extract_dir:
+            self.game_dir_var.set(extract_dir)
+            self._scan_game_dir()
 
     # ── game dir scanning ──────────────────────────────────
     def _scan_game_dir(self):
