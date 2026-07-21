@@ -45,8 +45,14 @@ class SkyExportGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("SkyVEx")
-        self.root.geometry("1060x740")
-        self.root.minsize(900, 620)
+        try:
+            import ctypes
+            self._scale = ctypes.windll.user32.GetDpiForSystem() / 96
+        except Exception:
+            self._scale = 1.0
+        w, h = int(1060 * self._scale), int(740 * self._scale)
+        self.root.geometry(f"{w}x{h}")
+        self.root.minsize(int(900 * self._scale), int(620 * self._scale))
 
         self.running = False
         self.log_queue = queue.Queue()
@@ -64,21 +70,81 @@ class SkyExportGUI:
         self._poll_log()
         self._import_modules()
 
+    BG       = "#1e2128"
+    BG_PANEL = "#262a33"
+    BG_ENTRY = "#2d3139"
+    BG_BTN   = "#353b47"
+    BG_HOVER = "#3e4553"
+    FG       = "#d4d4d8"
+    FG_DIM   = "#8b8fa3"
+    ACCENT   = "#e0a040"
+    ACCENT_H = "#f0b050"
+    BORDER   = "#3a3f4b"
+
     def _setup_style(self):
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Title.TLabel", font=("Segoe UI", 16, "bold"))
-        style.configure("Sub.TLabel", font=("Segoe UI", 9), foreground="#666")
-        style.configure("H.TLabel", font=("Segoe UI", 9, "bold"))
-        style.configure(
-            "Run.TButton", font=("Segoe UI", 10, "bold"), padding=(16, 6)
-        )
-        style.configure(
-            "Map.Treeview", font=("Segoe UI", 9), rowheight=22
-        )
-        style.configure(
-            "Map.Treeview.Heading", font=("Segoe UI", 9, "bold")
-        )
+        C = self.__class__
+        self.root.configure(bg=C.BG)
+
+        s = ttk.Style()
+        s.theme_use("clam")
+
+        s.configure(".", background=C.BG, foreground=C.FG,
+                    bordercolor=C.BORDER, darkcolor=C.BG,
+                    lightcolor=C.BG_PANEL, troughcolor=C.BG_ENTRY,
+                    fieldbackground=C.BG_ENTRY, insertcolor=C.FG,
+                    selectbackground=C.ACCENT, selectforeground="#000",
+                    font=("Segoe UI", 9))
+
+        s.configure("TFrame", background=C.BG)
+        s.configure("TLabel", background=C.BG, foreground=C.FG)
+        s.configure("TEntry", fieldbackground=C.BG_ENTRY, foreground=C.FG,
+                    insertcolor=C.FG)
+        s.configure("TCheckbutton", background=C.BG, foreground=C.FG,
+                    indicatorcolor=C.BG_ENTRY)
+        s.map("TCheckbutton",
+              background=[("active", C.BG)],
+              indicatorcolor=[("selected", C.ACCENT)])
+
+        s.configure("TButton", background=C.BG_BTN, foreground=C.FG,
+                    bordercolor=C.BORDER, padding=(8, 4))
+        s.map("TButton",
+              background=[("active", C.BG_HOVER), ("disabled", C.BG)],
+              foreground=[("disabled", "#555")])
+
+        s.configure("TLabelframe", background=C.BG, foreground=C.FG_DIM,
+                    bordercolor=C.BORDER)
+        s.configure("TLabelframe.Label", background=C.BG, foreground=C.FG_DIM,
+                    font=("Segoe UI", 9))
+
+        s.configure("TScrollbar", background=C.BG_PANEL,
+                    troughcolor=C.BG, bordercolor=C.BG,
+                    arrowcolor=C.FG_DIM)
+        s.map("TScrollbar", background=[("active", C.BG_HOVER)])
+
+        s.configure("TProgressbar", background=C.ACCENT,
+                    troughcolor=C.BG_ENTRY, bordercolor=C.BORDER)
+
+        s.configure("Map.Treeview", background=C.BG_PANEL,
+                    foreground=C.FG, fieldbackground=C.BG_PANEL,
+                    rowheight=24, font=("Segoe UI", 9))
+        s.map("Map.Treeview",
+              background=[("selected", "#3a4050")],
+              foreground=[("selected", C.FG)])
+        s.configure("Map.Treeview.Heading", background=C.BG_BTN,
+                    foreground=C.FG, font=("Segoe UI", 9, "bold"))
+
+        s.configure("Title.TLabel", font=("Segoe UI", 18, "bold"),
+                    foreground=C.ACCENT, background=C.BG)
+        s.configure("Sub.TLabel", font=("Segoe UI", 9),
+                    foreground=C.FG_DIM, background=C.BG)
+        s.configure("H.TLabel", font=("Segoe UI", 9, "bold"),
+                    foreground=C.FG, background=C.BG)
+
+        s.configure("Run.TButton", font=("Segoe UI", 10, "bold"),
+                    padding=(18, 7), background=C.ACCENT, foreground="#1a1a1a")
+        s.map("Run.TButton",
+              background=[("active", C.ACCENT_H), ("disabled", C.BG_BTN)],
+              foreground=[("disabled", "#555")])
 
     def _build_ui(self):
         # header
@@ -111,7 +177,7 @@ class SkyExportGUI:
         ttk.Label(
             self.root,
             text='选择游戏安装根目录 (如 "Sky Children of the Light")，点击「扫描」自动识别地图和 Mesh',
-            foreground="#888",
+            foreground="#6b7080",
             font=("Segoe UI", 8),
         ).pack(anchor="w", padx=(18, 0))
 
@@ -137,7 +203,7 @@ class SkyExportGUI:
             command=self._deselect_all_maps,
         ).pack(side="left", padx=(4, 0))
         self.map_count_label = ttk.Label(
-            map_toolbar, text="", foreground="#666", font=("Segoe UI", 8)
+            map_toolbar, text="", foreground="#6b7080", font=("Segoe UI", 8)
         )
         self.map_count_label.pack(side="right")
 
@@ -180,7 +246,7 @@ class SkyExportGUI:
         ttk.Label(
             opt_frame,
             text="扫描后自动填充 | 也可手动指定 .mesh 文件所在目录",
-            foreground="#888",
+            foreground="#6b7080",
             font=("Segoe UI", 8),
         ).pack(anchor="w", padx=(2, 0))
 
@@ -200,7 +266,7 @@ class SkyExportGUI:
         ttk.Label(
             opt_frame,
             text="留空则默认输出到游戏目录下的 Export_Output",
-            foreground="#888",
+            foreground="#6b7080",
             font=("Segoe UI", 8),
         ).pack(anchor="w", padx=(2, 0))
 
@@ -299,12 +365,15 @@ class SkyExportGUI:
             log_frame,
             wrap="word",
             font=("Consolas", 9),
-            bg="#1e1e1e",
-            fg="#dcdcdc",
-            insertbackground="#dcdcdc",
+            bg="#191c22",
+            fg="#c8c8cc",
+            insertbackground="#c8c8cc",
             state="disabled",
             relief="flat",
             height=8,
+            selectbackground="#3a4050",
+            selectforeground="#d4d4d8",
+            highlightthickness=0,
         )
         log_scroll = ttk.Scrollbar(
             log_frame, orient="vertical", command=self.log_text.yview
@@ -630,9 +699,11 @@ class SkyExportGUI:
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
+        win.configure(bg=self.BG)
 
         ttk.Label(
-            win, text="解析模块", font=("Segoe UI", 12, "bold")
+            win, text="解析模块", font=("Segoe UI", 12, "bold"),
+            foreground=self.ACCENT,
         ).pack(anchor="w", padx=16, pady=(12, 4))
 
         # script dir
@@ -679,10 +750,10 @@ class SkyExportGUI:
                     row,
                     text=f"{status}  {fname}",
                     font=("Consolas", 9),
-                    foreground="#2a2" if exists else "#c44",
+                    foreground="#6ec86e" if exists else "#e05050",
                 ).pack(side="left")
                 ttk.Label(
-                    row, text=desc, foreground="#888", font=("Segoe UI", 8)
+                    row, text=desc, foreground="#6b7080", font=("Segoe UI", 8)
                 ).pack(side="left", padx=(8, 0))
 
                 def open_file(p=fpath):
@@ -899,6 +970,11 @@ class SkyExportGUI:
 
 
 def main():
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
     root = tk.Tk()
     try:
         root.iconbitmap(default="")
