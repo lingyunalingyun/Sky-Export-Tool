@@ -22,7 +22,7 @@ A graphical interface that wraps the community's existing map-parsing scripts, a
 
 ## Screenshot
 
-*(TODO: add a screenshot of the GUI)*
+![SkyVEx GUI](./screenshot.png)
 
 ## Requirements
 

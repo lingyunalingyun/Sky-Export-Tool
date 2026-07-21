@@ -22,7 +22,7 @@
 
 ## 截图
 
-*(TODO: 补一张 GUI 截图)*
+![SkyVEx GUI](./screenshot.png)
 
 ## 依赖
 
