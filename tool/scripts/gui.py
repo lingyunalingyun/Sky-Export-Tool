@@ -70,16 +70,18 @@ class SkyExportGUI:
         self._poll_log()
         self._import_modules()
 
-    BG       = "#1e2128"
-    BG_PANEL = "#262a33"
-    BG_ENTRY = "#2d3139"
-    BG_BTN   = "#353b47"
-    BG_HOVER = "#3e4553"
-    FG       = "#d4d4d8"
-    FG_DIM   = "#8b8fa3"
-    ACCENT   = "#e0a040"
-    ACCENT_H = "#f0b050"
-    BORDER   = "#3a3f4b"
+    # ── Sky: Children of the Light palette ───────────────
+    BG       = "#0a1628"
+    BG_PANEL = "#0f1e38"
+    BG_ENTRY = "#162848"
+    BG_BTN   = "#1a3358"
+    BG_HOVER = "#224068"
+    FG       = "#e8e4d8"
+    FG_DIM   = "#6a7e98"
+    ACCENT   = "#f0c050"
+    ACCENT_H = "#ffd868"
+    BORDER   = "#1a3050"
+    GLOW     = "#f8d878"
 
     def _setup_style(self):
         C = self.__class__
@@ -92,7 +94,7 @@ class SkyExportGUI:
                     bordercolor=C.BORDER, darkcolor=C.BG,
                     lightcolor=C.BG_PANEL, troughcolor=C.BG_ENTRY,
                     fieldbackground=C.BG_ENTRY, insertcolor=C.FG,
-                    selectbackground=C.ACCENT, selectforeground="#000",
+                    selectbackground=C.ACCENT, selectforeground="#0a0a0a",
                     font=("Segoe UI", 9))
 
         s.configure("TFrame", background=C.BG)
@@ -109,7 +111,7 @@ class SkyExportGUI:
                     bordercolor=C.BORDER, padding=(8, 4))
         s.map("TButton",
               background=[("active", C.BG_HOVER), ("disabled", C.BG)],
-              foreground=[("disabled", "#555")])
+              foreground=[("disabled", "#3a4a5a")])
 
         s.configure("TLabelframe", background=C.BG, foreground=C.FG_DIM,
                     bordercolor=C.BORDER)
@@ -128,34 +130,53 @@ class SkyExportGUI:
                     foreground=C.FG, fieldbackground=C.BG_PANEL,
                     rowheight=24, font=("Segoe UI", 9))
         s.map("Map.Treeview",
-              background=[("selected", "#3a4050")],
-              foreground=[("selected", C.FG)])
+              background=[("selected", "#1a3860")],
+              foreground=[("selected", C.GLOW)])
         s.configure("Map.Treeview.Heading", background=C.BG_BTN,
                     foreground=C.FG, font=("Segoe UI", 9, "bold"))
 
         s.configure("Title.TLabel", font=("Segoe UI", 18, "bold"),
-                    foreground=C.ACCENT, background=C.BG)
+                    foreground=C.ACCENT)
         s.configure("Sub.TLabel", font=("Segoe UI", 9),
-                    foreground=C.FG_DIM, background=C.BG)
+                    foreground=C.FG_DIM)
         s.configure("H.TLabel", font=("Segoe UI", 9, "bold"),
-                    foreground=C.FG, background=C.BG)
+                    foreground=C.FG)
 
         s.configure("Run.TButton", font=("Segoe UI", 10, "bold"),
-                    padding=(18, 7), background=C.ACCENT, foreground="#1a1a1a")
+                    padding=(18, 7), background=C.ACCENT, foreground="#0a1020")
         s.map("Run.TButton",
               background=[("active", C.ACCENT_H), ("disabled", C.BG_BTN)],
-              foreground=[("disabled", "#555")])
+              foreground=[("disabled", "#3a4a5a")])
 
     def _build_ui(self):
-        # header
-        hdr = ttk.Frame(self.root, padding=(16, 10, 16, 4))
+        # gradient header
+        hdr_h = 56
+        hdr = tk.Canvas(self.root, height=hdr_h, highlightthickness=0, bd=0)
         hdr.pack(fill="x")
-        ttk.Label(hdr, text="SkyVEx", style="Title.TLabel").pack(
-            side="left"
-        )
-        ttk.Label(
-            hdr, text="光遇模型可视化便捷导出", style="Sub.TLabel"
-        ).pack(side="left", padx=(10, 0), pady=(6, 0))
+        def _paint_header(event=None):
+            hdr.delete("bg")
+            w = hdr.winfo_width() or 1060
+            r0, g0, b0 = 0x08, 0x12, 0x20
+            r1, g1, b1 = 0x12, 0x28, 0x48
+            for y in range(hdr_h):
+                t = y / max(hdr_h - 1, 1)
+                r = int(r0 + (r1 - r0) * t)
+                g = int(g0 + (g1 - g0) * t)
+                b = int(b0 + (b1 - b0) * t)
+                hdr.create_line(0, y, w, y, fill=f"#{r:02x}{g:02x}{b:02x}", tags="bg")
+            title_id = hdr.create_text(18, hdr_h // 2, anchor="w",
+                           text="SkyVEx", fill=self.ACCENT,
+                           font=("Segoe UI", 18, "bold"), tags="bg")
+            tb = hdr.bbox(title_id)
+            sub_x = (tb[2] + 12) if tb else 140
+            hdr.create_text(sub_x, hdr_h // 2 + 4, anchor="w",
+                           text="光遇模型可视化便捷导出", fill=self.FG_DIM,
+                           font=("Segoe UI", 9), tags="bg")
+            hdr.create_text(w - 18, hdr_h // 2, anchor="e",
+                           text="✦", fill="#2a4060",
+                           font=("Segoe UI", 22), tags="bg")
+        hdr.bind("<Configure>", _paint_header)
+        self.root.after(10, _paint_header)
 
         # game directory row
         dir_frame = ttk.Frame(self.root, padding=(16, 4, 16, 0))
@@ -365,14 +386,14 @@ class SkyExportGUI:
             log_frame,
             wrap="word",
             font=("Consolas", 9),
-            bg="#191c22",
-            fg="#c8c8cc",
-            insertbackground="#c8c8cc",
+            bg="#081018",
+            fg="#d0ccc0",
+            insertbackground="#d0ccc0",
             state="disabled",
             relief="flat",
             height=8,
-            selectbackground="#3a4050",
-            selectforeground="#d4d4d8",
+            selectbackground="#1a3860",
+            selectforeground="#f8d878",
             highlightthickness=0,
         )
         log_scroll = ttk.Scrollbar(
@@ -382,10 +403,10 @@ class SkyExportGUI:
         self.log_text.pack(side="left", fill="both", expand=True)
         log_scroll.pack(side="right", fill="y")
 
-        self.log_text.tag_configure("ok", foreground="#6ec86e")
-        self.log_text.tag_configure("warn", foreground="#e0c040")
-        self.log_text.tag_configure("err", foreground="#e05050")
-        self.log_text.tag_configure("info", foreground="#60a0d0")
+        self.log_text.tag_configure("ok", foreground="#80d880")
+        self.log_text.tag_configure("warn", foreground="#f0c050")
+        self.log_text.tag_configure("err", foreground="#e86060")
+        self.log_text.tag_configure("info", foreground="#68b8e8")
 
         self._last_output_dir = None
 
