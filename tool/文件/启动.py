@@ -767,13 +767,16 @@ def select_marker_categories(markers):
 # ============================================================
 # 主导出
 # ============================================================
-def export_map(map_folder, mesh_folder, export_markers=True, enabled_classes=None):
+def export_map(map_folder, mesh_folder, export_markers=True, enabled_classes=None, output_dir=None):
     _build_global_mesh_index()
     start_time = time.time()
     map_name = os.path.basename(map_folder.rstrip('/\\'))
-    
+
     # 创建输出目录
-    work_dir = os.path.join(map_folder, f"{map_name}_export")
+    if output_dir:
+        work_dir = os.path.join(output_dir, f"{map_name}_export")
+    else:
+        work_dir = os.path.join(map_folder, f"{map_name}_export")
     os.makedirs(work_dir, exist_ok=True)
     
     # 初始化日志
