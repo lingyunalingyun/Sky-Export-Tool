@@ -1,6 +1,8 @@
+# [Upstream] sky_mesh_to_obj — .mesh parser v2 (v31/v32)
+# Based on: kfhammond/SkyModelViewer + tudou178/fmt_mesh.py
+# License: MIT (see NOTICE)
 """
-正确的 Sky mesh → OBJ 转换器
-基于 kfhammond/SkyModelViewer + tudou178/fmt_mesh.py 的解析逻辑
+Sky mesh → OBJ 转换器
 支持 ZipPos (10-bit量化顶点) + ZipUvs (16-bit量化UV) + StripNorm
 """
 import struct

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+# [Upstream] 单独启动Sky_Bstbake — standalone terrain export launcher
+# Source: https://github.com/ThatSkyOldServer/SkyBstbake
+# Authors: checion (雨人) & Heriel (落秋)
+# License: MIT (see NOTICE)
 """
 启动器：用于调用 Sky_Bstbake.py 解析 .meshes，并导出绕序正确的 OBJ
-提供交互式菜单，支持单文件或批量转换，可指定输出目录。
 """
 
 import os

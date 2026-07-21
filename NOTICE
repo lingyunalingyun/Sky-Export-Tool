@@ -1,6 +1,12 @@
-This product includes software developed by the following projects:
+This project includes third-party parsing scripts that are not original to SkyVEx.
+Their licenses and copyright notices are reproduced below.
 
-=== https://github.com/ThatSkyOldServer/SkyBstbake ===
+================================================================================
+SkyBstbake — meshes/terrain parser
+https://github.com/ThatSkyOldServer/SkyBstbake
+Authors: checion (雨人) & Heriel (落秋)
+================================================================================
+
 MIT License
 
 Copyright (c) 2026 ThatSkyOldServer
@@ -22,3 +28,19 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+================================================================================
+Sky-.bin-reader — bin parser
+https://github.com/Miau0x1/Sky-.bin-reader
+Author: Miau
+================================================================================
+
+MIT License (see upstream repository for full text)
+
+================================================================================
+Sky-.bin-reader-python-zh — bin parser (Chinese version)
+https://github.com/skyIshier/Sky-.bin-reader-python-zh
+Author: 十二
+================================================================================
+
+MIT License (see upstream repository for full text)

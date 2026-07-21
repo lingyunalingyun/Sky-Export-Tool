@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
+# [Upstream] bintojson — .bin ↔ .json converter
+# Source: https://github.com/Miau0x1/Sky-.bin-reader
+#         https://github.com/skyIshier/Sky-.bin-reader-python-zh
+# Authors: Miau, 十二
+# License: MIT (see NOTICE)
 """
 Sky .bin 读取器 / 写入器 (Python 移植版) - 精确版 + 完整中文翻译
-严格保证浮点数精度，适用于手机端运行，适配所有地图
-
-翻译表独立存放在 zh字典.py 中，可随时补充修改
-
-用法：
-    python sky_bin.py              # 交互式菜单
-    python sky_bin.py file.bin     # 命令行转换 .bin -> .json
-    python sky_bin.py file.json    # 命令行转换 .json -> .bin
 """
 
 import sys

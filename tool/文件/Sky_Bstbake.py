@@ -1,14 +1,15 @@
+# [Upstream] SkyBstbake — terrain/meshes parser
+# Source: https://github.com/ThatSkyOldServer/SkyBstbake
+# Authors: checion (雨人) & Heriel (落秋)
+# License: MIT (see NOTICE)
+# Modified by lingyunalingyun: 修复 meshoptimizer 参数顺序
+
 import os
 import sys
 import struct
 import argparse
 import ctypes
 import ctypes.util
-
-
-# Author: checion and Heriel
-# 作者: 雨人 与 落秋
-# Modified: 修复 meshoptimizer 参数顺序
 
 try:
     import lz4.block

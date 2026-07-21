@@ -1,47 +1,41 @@
-# Sky-Export-Tool
+# SkyVEx
 
-从《光·遇》游戏地图中导出地形、场景模型和交互标记为 OBJ 文件。
+**光遇模型可视化便捷导出**（Convenient Visualization and Export of Sky: Children of the Light Models）
+
+《光·遇》地图 3D 数据导出工具 — 可视化界面。
 
 [中文](./README-zh.md) | [English](./README.md)
 
-## 功能
+## 这个项目是什么
 
-解析游戏二进制地图数据，输出标准 `.obj` 文件，可直接导入 Blender、UE5 等 3D 软件。
+一个图形化界面，封装了社区已有的地图解析脚本，额外提供：
 
-| 数据 | 源格式 | 输出 |
-|------|--------|------|
-| 地形网格 | `BstBaked.meshes` (LZ4 + meshopt) | 顶点 + 法线，按材质着色的顶点颜色 |
-| 场景模型 | `.mesh` (v23–v32) | 已应用 Transform 的实例 |
-| 交互标记 | `Objects.level.bin` | 传送门、NPC、冥想区等位置的彩色小球 |
+- **一键扫描游戏目录** — 选择游戏安装路径，自动识别所有地图和 Mesh 文件
+- **可视化地图选择** — 按场景分组的树形列表，支持单选/全选
+- **标记类名筛选** — 后台扫描带进度条，自由勾选要导出的标记类型
+- **纹理提取** — KTX (BC6H) → PNG 转换，OBJ 内 UV 映射，MTL 材质引用
+- **解析模块管理** — 查看、打开、更换底层解析脚本
 
-支持 `.meshes` 版本 v55–v57+ (LVL04–LVL0D)。
+> **底层的解析脚本（地形、模型、bin 转换）不是本项目原创。**
+> 它们来自 [致谢](#致谢) 和 [NOTICE](./NOTICE) 中列出的开源项目。
+> 本项目仅提供 GUI 界面和纹理提取管线。
 
-## 文件结构
+## 截图
 
-```
-tool/文件/
-├── 启动.py              # ⭐ 单地图导出（交互式，推荐）
-├── 批量地图转换.py       # 批量导出目录下所有地图
-├── Sky_Bstbake.py       # 核心地形解析引擎（BstBaked.meshes → 顶点/索引）
-├── sky_mesh_to_obj.py   # .mesh 模型解析器 v2（v31/v32，ZipPos/ZipUvs/LZ4）
-├── meshtoobj.py         # .mesh 模型解析器 旧版（v23–v30）
-├── bintojson.py         # .bin ↔ .json 双向转换器
-├── 单独启动Sky_Bstbake.py  # 独立地形导出
-├── _meshopt/
-│   └── meshopt2.dll     # meshopt 解码库（Windows，ctypes 回退）
-└── 环境.txt             # 依赖安装说明
-```
+*(TODO: 补一张 GUI 截图)*
 
 ## 依赖
 
 Python 3.8+
 
 ```bash
-pip install lz4 meshoptimizer
+pip install lz4 meshoptimizer texture2ddecoder Pillow
 ```
 
+`texture2ddecoder` 和 `Pillow` 仅纹理导出需要，不用纹理功能可以不装。
+
 <details>
-<summary>Termux (Android)</summary>
+<summary>Termux (Android) — 仅命令行脚本，无 GUI</summary>
 
 ```bash
 pkg update && pkg upgrade
@@ -52,91 +46,96 @@ pip install lz4 meshoptimizer
 
 ## 使用方法
 
-### 单地图导出
+### GUI（推荐）
 
 ```bash
 cd tool/文件
-python 启动.py
+python gui.py
 ```
 
-按提示输入：
-1. 地图文件夹路径（包含 `Objects.level.bin` 和 `BstBaked.meshes` 的目录）
-2. mesh 文件夹路径（存放已提取的 `.mesh` 文件）
-3. 是否导出标记小球 (y/n)
+1. **浏览** 选择游戏安装目录，点击 **扫描**
+2. 在树形列表中勾选要导出的地图
+3. 按需开关标记小球、纹理导出，设置输出目录
+4. 点击 **开始导出**
 
-输出：`<地图文件夹>/<地图名>_export/<地图名>.obj`
+### 命令行（原始脚本）
 
-### 批量导出
+原始命令行脚本仍可独立使用：
 
 ```bash
-python 批量地图转换.py
+python 启动.py           # 单地图导出（交互式）
+python 批量地图转换.py    # 批量导出
+python Sky_Bstbake.py --unpack BstBaked.meshes --export-obj  # 仅地形
+python bintojson.py Objects.level.bin   # bin → json
 ```
 
-按提示输入：
-1. Level 目录路径（包含所有地图子文件夹的上级目录）
-2. mesh 文件夹路径
-3. 是否导出标记小球 (y/n)
+## 文件结构与版权归属
 
-输出：`<Level 目录>/../输出/<地图名>/<地图名>.obj`
-
-### 仅导出地形
-
-```bash
-python 单独启动Sky_Bstbake.py
+```
+tool/文件/
+│
+│  [原创 — lingyunalingyun]
+├── gui.py                     # 可视化界面 & 纹理管线
+│
+│  [上游 + 修改 — 详见文件头注释]
+├── 批量地图转换.py              # 批量导出引擎（+ 纹理管线）
+├── 启动.py                     # 单地图命令行导出（+ output_dir）
+│
+│  [上游 — 原作者，详见 NOTICE]
+├── Sky_Bstbake.py              # 核心地形解析器
+├── sky_mesh_to_obj.py          # .mesh 解析器 v2 (v31/v32)
+├── meshtoobj.py                # .mesh 解析器旧版 (v23–v30)
+├── bintojson.py                # .bin ↔ .json 转换器
+├── 单独启动Sky_Bstbake.py       # 独立地形导出
+└── _meshopt/
+    └── meshopt2.dll            # meshopt 解码库 (Windows)
 ```
 
-或直接调用核心脚本：
+每个脚本文件头部都标注了来源和许可证，详细的上游许可证信息请参见 [NOTICE](./NOTICE)。
 
-```bash
-python Sky_Bstbake.py --unpack BstBaked.meshes --export-obj
-```
+## 对上游脚本的修改说明
 
-### .bin 与 .json 互转
+以下上游文件经过修改，所有改动均在文件头注释中标明。
 
-```bash
-python bintojson.py Objects.level.bin    # → .json
-python bintojson.py Objects.level.json   # → .bin
-```
+| 文件 | 修改内容 |
+|------|---------|
+| `批量地图转换.py` | 添加纹理提取管线：`extract_texture_name()`、`convert_ktx_to_png()`、`find_ktx_file()`；OBJ 输出增加 `vt`（UV 坐标）和 `f v/vt` 格式；MTL 输出增加 `map_Kd` 纹理引用；`export_single_map()` 增加 `image_dirs` 参数 |
+| `启动.py` | `export_map()` 添加可选 `output_dir` 参数 |
+| `Sky_Bstbake.py` | 修复 meshoptimizer 参数顺序 |
+
+其余上游脚本均**未经修改**，与原始仓库保持一致。
 
 ## OBJ 输出内容
 
-导出的 OBJ 最多包含三个部分：
-
-- **地形** — 地面网格，带法线和按材质着色的顶点颜色
-- **模型实例** — 场景物体（石头、建筑、植物等），已应用变换矩阵，Z 轴翻转适配 Blender
-- **标记小球**（可选）— 交互点位置的彩色球体：
-
-| 类名 | 颜色 |
+| 数据 | 说明 |
 |------|------|
-| Marker | 金色 |
-| Npc | 绿色 |
-| MeditationArea | 蓝色 |
-| Portal | 红色 |
-| Checkpoint | 橙色 |
-| Wind | 天蓝 |
-| Water | 深蓝 |
-| Flame | 橙红 |
-| PointLight | 暖黄 |
-| SoundEmitter | 青色 |
-| Timeline | 紫色 |
+| 地形 | 地面网格，带法线和顶点颜色 |
+| 模型 | 场景物体，已应用变换矩阵，Z 轴翻转适配 Blender |
+| 标记 | 交互点位置的彩色球体（可选） |
+| 纹理 | PNG 文件 + MTL 材质引用（可选） |
 
 ## 常见问题
 
 | 问题 | 解决 |
 |------|------|
-| 缺少 `lz4` | `pip install lz4` |
-| 缺少 `meshoptimizer` | `pip install meshoptimizer`（Termux 需先装 clang/cmake） |
-| 地形 0 顶点 | meshopt 解码失败 — 检查 meshoptimizer 安装，Windows 上将 `meshopt2.dll` 放入 `_meshopt/` |
-| 模型缺失 | 需另行从游戏资源包中提取 `.mesh` 文件 |
+| 缺少 `lz4` / `meshoptimizer` | `pip install lz4 meshoptimizer` |
+| 地形 0 顶点 | 检查 meshoptimizer 安装；Windows 将 `meshopt2.dll` 放入 `_meshopt/` |
+| 模型缺失 | 需从游戏资源包中提取 `.mesh` 文件 |
+| 纹理导出失败 | `pip install texture2ddecoder Pillow` |
 
 ## 致谢
 
-基于以下项目：
+**解析脚本** 基于以下作者和项目，均以 MIT 许可证发布：
+
 - checion (雨人) & Heriel (落秋) — [SkyBstbake](https://github.com/ThatSkyOldServer/SkyBstbake)
 - Miau — [Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
 - potato — 脚本
 - 十二 — 整合封装、[Sky-.bin-reader-python-zh](https://github.com/skyIshier/Sky-.bin-reader-python-zh)
 
+**GUI 界面与纹理管线** 由 lingyunalingyun 开发。
+
 ## 许可证
 
-MIT — 见 [LICENSE](./LICENSE)。
+SkyVEx 的 GUI 和纹理管线代码（`gui.py` 及 `批量地图转换.py` 中的新增部分）以 MIT 许可证发布 — 见 [LICENSE](./LICENSE)。
+
+上游解析脚本保留其原始 MIT 许可证 — 见 [NOTICE](./NOTICE)。

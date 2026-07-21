@@ -1,3 +1,8 @@
+# [Upstream] meshtoobj — .mesh model parser (legacy, v23–v30)
+# Source: https://github.com/ThatSkyOldServer/SkyBstbake
+# Authors: checion (雨人) & Heriel (落秋)
+# License: MIT (see NOTICE)
+
 import struct
 import os
 import sys

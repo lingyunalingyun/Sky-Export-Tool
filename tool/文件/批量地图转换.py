@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
+# [Upstream + Modified] 批量地图转换 — batch map export engine
+# Original authors: checion (雨人), Heriel (落秋), potato, 十二
+# License: MIT (see NOTICE)
+# Modified by lingyunalingyun: 添加纹理提取管线 (KTX→PNG, UV映射, MTL材质)
 """
-批量地图导出工具 v7.0 - 自动生成颜色（不硬编码）
-遍历 level 目录下的所有地图文件夹，批量导出 OBJ
-输出到和 level 同级的"输出"文件夹
-支持选择是否导出标记小球
+批量地图导出工具 v7.0
 """
 
 import os
@@ -302,40 +303,41 @@ def parse_meshes_to_obj_data(meshes_file):
 # ============================================================
 def parse_mesh_file(mesh_path):
     if not HAS_MESH:
-        return [], []
+        return [], [], []
     try:
         with open(mesh_path, 'rb') as f:
             data = f.read()
     except:
-        return [], []
-    
+        return [], [], []
+
     if len(data) < 4:
-        return [], []
-    
+        return [], [], []
+
     header = data[:4]
     version = HEADER_VERSION_MAP.get(header)
     if version is None:
-        return [], []
-    
+        return [], [], []
+
     handler = _mesh_handlers.get(header)
     if handler is None:
-        return [], []
-    
+        return [], [], []
+
     try:
         filename = os.path.basename(mesh_path)
         if header == b'\x17\x00\x00\x00':
             result = handler(data, mesh_path, filename, version, False, True)
         else:
             result = handler(data, mesh_path, filename, version, True)
-        
+
         if result and len(result) >= 3:
             verts = [(v[0], v[1], v[2]) for v in result[0]]
+            uvs = [(uv[0], uv[1]) for uv in result[1]] if len(result) > 1 and result[1] else []
             faces = [(f[0], f[1], f[2]) for f in result[2]]
-            return verts, faces
+            return verts, uvs, faces
     except:
         pass
-    
-    return [], []
+
+    return [], [], []
 
 # ============================================================
 # JSON 解析和资源提取
@@ -395,6 +397,63 @@ def extract_transform_from_cls_data(cls_data):
                 return (float(value[12]), float(value[13]), float(value[14])), value
     return None, None
 
+def extract_texture_name(cls_data):
+    sp = cls_data.get('shaderParams', [])
+    for p in sp:
+        lmsp = p.get('LevelMeshShaderParam', {})
+        uni = lmsp.get('uniformName', '')
+        tex = lmsp.get('texValue', '')
+        if tex and uni in ('u_diffuseTex', 'u_diffuse1Tex', 'u_diffuse2Tex'):
+            return tex
+    for p in sp:
+        lmsp = p.get('LevelMeshShaderParam', {})
+        tex = lmsp.get('texValue', '')
+        if tex and tex not in ('White', 'Black', 'Gray', 'Normal', 'Clear',
+                               'UpNormal', 'Orange', 'OrangeL1'):
+            return tex
+    return None
+
+
+HAS_KTX_DECODER = False
+try:
+    import texture2ddecoder
+    from PIL import Image as _PILImage
+    HAS_KTX_DECODER = True
+except ImportError:
+    pass
+
+
+def convert_ktx_to_png(ktx_path, out_path):
+    if not HAS_KTX_DECODER:
+        return False
+    try:
+        with open(ktx_path, 'rb') as f:
+            f.read(12 + 4 + 4 + 4 + 4)
+            f.read(4)  # glInternalFormat (all BC6H)
+            f.read(4)  # glBaseInternalFormat
+            width = struct.unpack('<I', f.read(4))[0]
+            height = struct.unpack('<I', f.read(4))[0]
+            f.read(4 + 4 + 4 + 4)
+            kvdLen = struct.unpack('<I', f.read(4))[0]
+            f.read((kvdLen + 3) & ~3)
+            img_size = struct.unpack('<I', f.read(4))[0]
+            img_data = f.read(img_size)
+        decoded = texture2ddecoder.decode_bc6(img_data, width, height)
+        img = _PILImage.frombytes('RGBA', (width, height), decoded)
+        img.save(out_path)
+        return True
+    except Exception:
+        return False
+
+
+def find_ktx_file(image_dirs, tex_name):
+    for d in image_dirs:
+        p = os.path.join(d, f"{tex_name}.ktx")
+        if os.path.exists(p):
+            return p
+    return None
+
+
 def find_all_levelmesh_with_resources(json_data):
     results = []
     bst_nodes = json_data.get('BSTNodes', {})
@@ -413,12 +472,14 @@ def find_all_levelmesh_with_resources(json_data):
             coords, raw_floats = extract_transform_from_cls_data(cls_data)
             if coords is None:
                 continue
+            tex_name = extract_texture_name(cls_data)
             results.append({
                 'node_name': node_name,
                 'class_name': cls_name,
                 'resource_name': resource_name,
                 'coords': coords,
-                'raw_floats': raw_floats
+                'raw_floats': raw_floats,
+                'texture': tex_name,
             })
     return results
 
@@ -517,7 +578,7 @@ def select_marker_categories(markers):
 # ============================================================
 # 单个地图导出
 # ============================================================
-def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, enabled_classes, log_entry):
+def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, enabled_classes, log_entry, image_dirs=None):
     map_name = os.path.basename(map_folder)
     output_dir = os.path.join(output_base_dir, map_name)
     os.makedirs(output_dir, exist_ok=True)
@@ -592,18 +653,22 @@ def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, 
     fail_count = 0
     missing_count = 0
     
+    texture_map = {}
     if HAS_MESH and os.path.isdir(mesh_folder) and level_meshes:
         for lm in level_meshes:
             res = lm['resource_name']
+            if lm.get('texture'):
+                texture_map.setdefault(res, lm['texture'])
             if res in loaded_resources:
                 continue
             mesh_file = find_mesh_file(mesh_folder, res)
             if mesh_file and os.path.exists(mesh_file):
-                verts, faces = parse_mesh_file(mesh_file)
+                verts, uvs, faces = parse_mesh_file(mesh_file)
                 if verts and faces:
                     mesh_models.append({
                         'resource': res,
                         'verts': verts,
+                        'uvs': uvs,
                         'faces': faces,
                         'instances': []
                     })
@@ -613,7 +678,7 @@ def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, 
                     fail_count += 1
             else:
                 missing_count += 1
-        
+
         model_map = {m['resource']: m for m in mesh_models}
         for lm in level_meshes:
             if lm['resource_name'] in model_map:
@@ -626,32 +691,58 @@ def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, 
         log_entry['models_instances'] = total_instances
         log_entry['models_count'] = len(mesh_models)
     
-    # 7. 写入 OBJ
+    # 7. 转换纹理
+    tex_dir = os.path.join(output_dir, "textures")
+    converted_textures = {}
+    if image_dirs and texture_map and HAS_KTX_DECODER:
+        os.makedirs(tex_dir, exist_ok=True)
+        for res, tex_name in texture_map.items():
+            if tex_name in converted_textures:
+                continue
+            ktx = find_ktx_file(image_dirs, tex_name)
+            if ktx:
+                png_name = f"{tex_name}.png"
+                png_path = os.path.join(tex_dir, png_name)
+                if not os.path.exists(png_path):
+                    convert_ktx_to_png(ktx, png_path)
+                if os.path.exists(png_path):
+                    converted_textures[tex_name] = os.path.join("textures", png_name)
+
+    # 8. 写入 OBJ
     obj_path = os.path.join(output_dir, f"{map_name}.obj")
     mtl_path = os.path.join(output_dir, f"{map_name}.mtl")
-    
-    # 收集所有需要写入 MTL 的材质（标记类名）
+
     marker_classes = set(m['class'] for m in markers) if markers else set()
-    
+
     try:
         with open(mtl_path, 'w', encoding='utf-8') as mf:
-            mf.write("# Sky Map Materials (Auto-generated colors)\n")
-            mf.write("# Colors are generated from class name hash\n\n")
+            mf.write("# Sky Map Materials\n\n")
             mf.write("newmtl terrain\nKd 0.45 0.42 0.38\nKa 0.1 0.1 0.1\nKs 0.0 0.0 0.0\nd 1.0\n\n")
             mf.write("newmtl model\nKd 0.75 0.73 0.68\nKa 0.1 0.1 0.1\nKs 0.0 0.0 0.0\nd 1.0\n\n")
-            
+
+            written_mtls = set()
+            for model in mesh_models:
+                res = model['resource']
+                tex_name = texture_map.get(res)
+                if tex_name and tex_name in converted_textures:
+                    mtl_name = f"tex_{tex_name}"
+                    if mtl_name not in written_mtls:
+                        written_mtls.add(mtl_name)
+                        mf.write(f"newmtl {mtl_name}\nKd 1.0 1.0 1.0\nKa 0.1 0.1 0.1\n")
+                        mf.write(f"map_Kd {converted_textures[tex_name]}\nd 1.0\n\n")
+
             for cls_name in sorted(marker_classes):
                 color = get_color_from_classname(cls_name)
                 safe_name = cls_name.replace(' ', '_').replace('(', '_').replace(')', '_').replace('>', '_').replace('<', '_')
                 mf.write(f"newmtl {safe_name}\nKd {color[0]:.4f} {color[1]:.4f} {color[2]:.4f}\nKa 0.1 0.1 0.1\nKs 0.0 0.0 0.0\nd 1.0\n\n")
-        
+
         global_v = 1
-        
+        global_vt = 1
+
         with open(obj_path, 'w', encoding='utf-8') as f:
             f.write(f"# Sky Map: {map_name}\n")
-            f.write(f"# Export markers: {export_markers}\n")
             f.write(f"mtllib {map_name}.mtl\n\n")
-            
+
             if terrain_verts:
                 f.write("o Terrain\nusemtl terrain\n")
                 for v in terrain_verts:
@@ -660,23 +751,44 @@ def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, 
                     f.write(f"f {tri[0]+global_v} {tri[1]+global_v} {tri[2]+global_v}\n")
                 global_v += len(terrain_verts)
                 f.write("\n")
-            
+
             for model in mesh_models:
+                res = model['resource']
+                has_uv = bool(model['uvs'])
+                tex_name = texture_map.get(res)
+                has_tex = tex_name and tex_name in converted_textures
+
+                if has_tex:
+                    mtl_name = f"tex_{tex_name}"
+                else:
+                    mtl_name = "model"
+
                 for inst in model['instances']:
                     raw_floats = inst.get('raw_floats')
                     if raw_floats:
                         transformed = apply_transform(model['verts'], raw_floats)
                     else:
                         transformed = [(-v[0], v[1], -v[2]) for v in model['verts']]
-                    
-                    f.write(f"o {model['resource']}\nusemtl model\n")
+
+                    f.write(f"o {res}\nusemtl {mtl_name}\n")
                     for v in transformed:
                         f.write(f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
-                    for tri in model['faces']:
-                        f.write(f"f {tri[0]+global_v} {tri[1]+global_v} {tri[2]+global_v}\n")
+
+                    if has_uv:
+                        for uv in model['uvs']:
+                            f.write(f"vt {uv[0]:.6f} {uv[1]:.6f}\n")
+                        for tri in model['faces']:
+                            vi0, vi1, vi2 = tri[0]+global_v, tri[1]+global_v, tri[2]+global_v
+                            ti0, ti1, ti2 = tri[0]+global_vt, tri[1]+global_vt, tri[2]+global_vt
+                            f.write(f"f {vi0}/{ti0} {vi1}/{ti1} {vi2}/{ti2}\n")
+                        global_vt += len(model['uvs'])
+                    else:
+                        for tri in model['faces']:
+                            f.write(f"f {tri[0]+global_v} {tri[1]+global_v} {tri[2]+global_v}\n")
+
                     global_v += len(transformed)
                 f.write("\n")
-            
+
             if export_markers and markers:
                 markers_by_class = {}
                 for m in markers:
@@ -684,11 +796,10 @@ def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, 
                     if cls not in markers_by_class:
                         markers_by_class[cls] = []
                     markers_by_class[cls].append(m)
-                
+
                 for cls_name, nodes in sorted(markers_by_class.items()):
                     safe_name = cls_name.replace(' ', '_').replace('(', '_').replace(')', '_').replace('>', '_').replace('<', '_')
                     f.write(f"o {safe_name}_Markers\nusemtl {safe_name}\n")
-                    f.write(f"# {len(nodes)} 个 {cls_name} 节点\n")
                     for node in nodes:
                         verts, faces = make_sphere_verts(node['x'], node['y'], node['z'], 0.5)
                         for v in verts:
@@ -697,12 +808,13 @@ def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, 
                             f.write(f"f {tri[0]+global_v} {tri[1]+global_v} {tri[2]+global_v}\n")
                         global_v += len(verts)
                     f.write("\n")
-        
+
         log_entry['status'] = 'success'
         log_entry['obj_path'] = obj_path
         log_entry['total_vertices'] = global_v - 1
+        log_entry['textures_count'] = len(converted_textures)
         return True
-        
+
     except Exception as e:
         log_entry['status'] = 'failed'
         log_entry['error'] = str(e)

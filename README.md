@@ -1,47 +1,41 @@
-# Sky-Export-Tool
+# SkyVEx
 
-Export terrain, scene models, and interaction markers from *Sky: Children of the Light* maps to OBJ.
+**Convenient Visualization and Export of Sky: Children of the Light Models**
+
+GUI frontend for batch-exporting 3D map data from *Sky: Children of the Light*.
 
 [中文](./README-zh.md) | [English](./README.md)
 
-## What it does
+## What this project is
 
-Parses the game's binary map data and outputs standard `.obj` files you can open in Blender, UE5, or any 3D software.
+A graphical interface that wraps the community's existing map-parsing scripts, adding:
 
-| Data | Source format | Output |
-|------|--------------|--------|
-| Terrain mesh | `BstBaked.meshes` (LZ4 + meshopt) | Vertices + normals, per-material vertex colors |
-| Scene models | `.mesh` (v23–v32) | Positioned instances with transforms applied |
-| Interaction markers | `Objects.level.bin` | Colored spheres for portals, NPCs, meditation spots, etc. |
+- **One-click game directory scanning** — point at your game install, auto-discover all maps and mesh files
+- **Visual map selection** — scene-grouped tree with per-map checkboxes
+- **Marker class filtering** — background scan with progress bar, pick which marker types to export
+- **Texture extraction** — KTX (BC6H) → PNG conversion, UV mapping in OBJ, material references in MTL
+- **Script manager** — view, open, and swap the underlying parsing scripts
 
-Supports `.meshes` versions v55–v57+ (LVL04–LVL0D).
+> **The parsing scripts (terrain, mesh, bin) are NOT written by us.**
+> They come from the open-source projects listed in [Credits](#credits) and [NOTICE](./NOTICE).
+> We only provide the GUI wrapper and the texture extraction pipeline.
 
-## File structure
+## Screenshot
 
-```
-tool/文件/
-├── 启动.py              # Single map export (interactive, recommended)
-├── 批量地图转换.py       # Batch export all maps in a directory
-├── Sky_Bstbake.py       # Core terrain parser (BstBaked.meshes → vertices/indices)
-├── sky_mesh_to_obj.py   # .mesh model parser v2 (v31/v32, ZipPos/ZipUvs/LZ4)
-├── meshtoobj.py         # .mesh model parser legacy (v23–v30)
-├── bintojson.py         # .bin ↔ .json converter (Objects.level.bin)
-├── 单独启动Sky_Bstbake.py  # Standalone terrain-only export
-├── _meshopt/
-│   └── meshopt2.dll     # meshopt decoder (Windows, ctypes fallback)
-└── 环境.txt             # Dependency install notes
-```
+*(TODO: add a screenshot of the GUI)*
 
 ## Requirements
 
 Python 3.8+
 
 ```bash
-pip install lz4 meshoptimizer
+pip install lz4 meshoptimizer texture2ddecoder Pillow
 ```
 
+`texture2ddecoder` and `Pillow` are only needed for texture export. The rest works without them.
+
 <details>
-<summary>Termux (Android)</summary>
+<summary>Termux (Android) — CLI scripts only, no GUI</summary>
 
 ```bash
 pkg update && pkg upgrade
@@ -52,103 +46,96 @@ pip install lz4 meshoptimizer
 
 ## Usage
 
-### Single map export
+### GUI (recommended)
 
 ```bash
 cd tool/文件
-python 启动.py
+python gui.py
 ```
 
-Prompts:
-1. Map folder path (the directory containing `Objects.level.bin` and `BstBaked.meshes`)
-2. Mesh folder path (directory of extracted `.mesh` files)
-3. Export marker spheres? (y/n)
+1. **Browse** to your game install directory, click **Scan**
+2. Check/uncheck maps in the tree
+3. Toggle markers, textures, adjust output directory
+4. Click **Start Export**
 
-Output: `<map_folder>/<map_name>_export/<map_name>.obj`
+### CLI (original scripts)
 
-### Batch export
+The original command-line scripts still work independently:
 
 ```bash
-python 批量地图转换.py
+python 启动.py           # Single map (interactive prompts)
+python 批量地图转换.py    # Batch export
+python Sky_Bstbake.py --unpack BstBaked.meshes --export-obj  # Terrain only
+python bintojson.py Objects.level.bin   # bin → json
 ```
 
-Prompts:
-1. Level directory (parent containing all map subdirectories)
-2. Mesh folder path
-3. Export marker spheres? (y/n)
+## File structure & copyright
 
-Output: `<level_dir>/../输出/<map_name>/<map_name>.obj`
-
-### Terrain only (standalone)
-
-```bash
-python 单独启动Sky_Bstbake.py
+```
+tool/文件/
+│
+│  [Original — lingyunalingyun]
+├── gui.py                     # GUI frontend & texture pipeline
+│
+│  [Upstream + Modified — see headers for details]
+├── 批量地图转换.py              # Batch export engine (+ texture pipeline)
+├── 启动.py                     # Single map CLI export (+ output_dir)
+│
+│  [Upstream — original authors, see NOTICE]
+├── Sky_Bstbake.py              # Core terrain parser
+├── sky_mesh_to_obj.py          # .mesh parser v2 (v31/v32)
+├── meshtoobj.py                # .mesh parser legacy (v23–v30)
+├── bintojson.py                # .bin ↔ .json converter
+├── 单独启动Sky_Bstbake.py       # Standalone terrain export
+└── _meshopt/
+    └── meshopt2.dll            # meshopt decoder (Windows)
 ```
 
-Or use `Sky_Bstbake.py` directly:
+Every script file contains a header comment indicating its source and license. Please refer to those headers and the [NOTICE](./NOTICE) file for upstream licensing details.
 
-```bash
-python Sky_Bstbake.py --unpack BstBaked.meshes --export-obj
-```
+## Modifications to upstream scripts
 
-### .bin ↔ .json conversion
+The following upstream files were modified. All changes are clearly marked in the file headers.
 
-```bash
-python bintojson.py Objects.level.bin    # → .json
-python bintojson.py Objects.level.json   # → .bin
-```
+| File | What was changed |
+|------|-----------------|
+| `批量地图转换.py` | Added texture extraction pipeline: `extract_texture_name()`, `convert_ktx_to_png()`, `find_ktx_file()`; OBJ output now includes `vt` (UV coords) and `f v/vt` format; MTL output includes `map_Kd` texture references; `export_single_map()` accepts `image_dirs` parameter |
+| `启动.py` | Added optional `output_dir` parameter to `export_map()` |
+| `Sky_Bstbake.py` | Fixed meshoptimizer parameter order |
 
-## OBJ output contents
+All other upstream scripts are included **unmodified** from their original repositories.
 
-The exported OBJ contains up to three object groups:
+## OBJ output
 
-- **Terrain** — ground mesh with normals and per-material vertex colors
-- **Model instances** — scene objects (rocks, buildings, flora, etc.) with transforms applied, Z-axis flipped for Blender
-- **Marker spheres** (optional) — colored spheres at interaction points:
-
-| Class | Color |
-|-------|-------|
-| Marker | Gold |
-| Npc | Green |
-| MeditationArea | Blue |
-| Portal | Red |
-| Checkpoint | Orange |
-| Wind | Sky blue |
-| Water | Deep blue |
-| Flame | Orange-red |
-| PointLight | Warm yellow |
-| SoundEmitter | Cyan |
-| Timeline | Purple |
-
-## Prompt translation reference
-
-Since the scripts use Chinese prompts:
-
-| Chinese | English |
-|---------|---------|
-| 地图文件夹 | Map folder path |
-| mesh 文件夹路径 | Mesh folder path |
-| 是否导出标记小球? | Export marker spheres? (y/n) |
-| Level 目录路径 | Level directory path |
-| 是否开始批量导出? | Start batch export? (y/n) |
+| Data | Description |
+|------|-------------|
+| Terrain | Ground mesh with normals and vertex colors |
+| Models | Scene objects with transforms applied, Z-flipped for Blender |
+| Markers | Colored spheres at interaction points (optional) |
+| Textures | PNG files + MTL material references (optional) |
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| `lz4` not found | `pip install lz4` |
-| `meshoptimizer` not found | `pip install meshoptimizer` (Termux: install clang/cmake first) |
-| Terrain 0 vertices | meshopt decode failed — check meshoptimizer install, or place `meshopt2.dll` in `_meshopt/` on Windows |
-| Models missing | Need to extract `.mesh` files from game assets separately |
+| `lz4` / `meshoptimizer` not found | `pip install lz4 meshoptimizer` |
+| Terrain 0 vertices | Check meshoptimizer install; Windows: put `meshopt2.dll` in `_meshopt/` |
+| Models missing | Need `.mesh` files extracted from game assets |
+| Texture export fails | `pip install texture2ddecoder Pillow` |
 
 ## Credits
 
-Based on work by:
+**Parsing scripts** are based on work by the following authors and projects — all originally released under the MIT license:
+
 - checion (雨人) & Heriel (落秋) — [SkyBstbake](https://github.com/ThatSkyOldServer/SkyBstbake)
 - Miau — [Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
 - potato — scripts
 - 十二 — integration, [Sky-.bin-reader-python-zh](https://github.com/skyIshier/Sky-.bin-reader-python-zh)
 
+**GUI frontend and texture pipeline** by lingyunalingyun.
+
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+The SkyVEx GUI and texture pipeline code (`gui.py` and additions to `批量地图转换.py`) are released under the MIT License — see [LICENSE](./LICENSE).
+
+The upstream parsing scripts retain their original MIT licenses — see [NOTICE](./NOTICE) for details.
