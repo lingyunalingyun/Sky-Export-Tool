@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # [Upstream + Modified] 批量地图转换 — batch map export engine
-# Original authors: checion (雨人), Heriel (落秋), potato, 十二
+# Original authors: checion (雨人), Heriel (落秋), potato
 # License: MIT (see NOTICE)
 # Modified by lingyunalingyun: 添加纹理提取管线 (KTX→PNG, UV映射, MTL材质)
 """

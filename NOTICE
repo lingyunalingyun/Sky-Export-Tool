@@ -1,6 +1,10 @@
 This project includes third-party parsing scripts that are not original to SkyVEx.
 Their licenses and copyright notices are reproduced below.
 
+The bintojson.py parser was written from scratch by lingyunalingyun, based on the
+TGCL binary format researched by Miau. It does not contain code from any upstream
+repository.
+
 ================================================================================
 SkyBstbake — meshes/terrain parser
 https://github.com/ThatSkyOldServer/SkyBstbake
@@ -30,17 +34,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-Sky-.bin-reader — bin parser
+Sky-.bin-reader — TGCL format research
 https://github.com/Miau0x1/Sky-.bin-reader
 Author: Miau
 ================================================================================
 
-MIT License (see upstream repository for full text)
-
-================================================================================
-Sky-.bin-reader-python-zh — bin parser (Chinese version)
-https://github.com/skyIshier/Sky-.bin-reader-python-zh
-Author: 十二
-================================================================================
-
-MIT License (see upstream repository for full text)
+SkyVEx's bintojson.py is an independent implementation informed by Miau's format
+research. No code from this repository is used.

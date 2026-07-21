@@ -81,11 +81,13 @@ tool/文件/
 ├── 批量地图转换.py              # Batch export engine (+ texture pipeline)
 ├── 启动.py                     # Single map CLI export (+ output_dir)
 │
+│  [Original — lingyunalingyun, format research by Miau]
+├── bintojson.py                   # TGCL .bin → .json parser
+│
 │  [Upstream — original authors, see NOTICE]
 ├── Sky_Bstbake.py              # Core terrain parser
 ├── sky_mesh_to_obj.py          # .mesh parser v2 (v31/v32)
 ├── meshtoobj.py                # .mesh parser legacy (v23–v30)
-├── bintojson.py                # .bin ↔ .json converter
 ├── 单独启动Sky_Bstbake.py       # Standalone terrain export
 └── _meshopt/
     └── meshopt2.dll            # meshopt decoder (Windows)
@@ -128,11 +130,10 @@ All other upstream scripts are included **unmodified** from their original repos
 **Parsing scripts** are based on work by the following authors and projects — all originally released under the MIT license:
 
 - checion (雨人) & Heriel (落秋) — [SkyBstbake](https://github.com/ThatSkyOldServer/SkyBstbake)
-- Miau — [Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
+- Miau — TGCL format research, [Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
 - potato — scripts
-- 十二 — integration, [Sky-.bin-reader-python-zh](https://github.com/skyIshier/Sky-.bin-reader-python-zh)
 
-**GUI frontend and texture pipeline** by lingyunalingyun.
+**GUI, bin parser, and texture pipeline** by lingyunalingyun.
 
 ## License
 

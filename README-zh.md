@@ -81,11 +81,13 @@ tool/文件/
 ├── 批量地图转换.py              # 批量导出引擎（+ 纹理管线）
 ├── 启动.py                     # 单地图命令行导出（+ output_dir）
 │
+│  [原创 — lingyunalingyun，格式研究来自 Miau]
+├── bintojson.py                   # TGCL .bin → .json 解析器
+│
 │  [上游 — 原作者，详见 NOTICE]
 ├── Sky_Bstbake.py              # 核心地形解析器
 ├── sky_mesh_to_obj.py          # .mesh 解析器 v2 (v31/v32)
 ├── meshtoobj.py                # .mesh 解析器旧版 (v23–v30)
-├── bintojson.py                # .bin ↔ .json 转换器
 ├── 单独启动Sky_Bstbake.py       # 独立地形导出
 └── _meshopt/
     └── meshopt2.dll            # meshopt 解码库 (Windows)
@@ -128,11 +130,10 @@ tool/文件/
 **解析脚本** 基于以下作者和项目，均以 MIT 许可证发布：
 
 - checion (雨人) & Heriel (落秋) — [SkyBstbake](https://github.com/ThatSkyOldServer/SkyBstbake)
-- Miau — [Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
+- Miau — TGCL 格式研究、[Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
 - potato — 脚本
-- 十二 — 整合封装、[Sky-.bin-reader-python-zh](https://github.com/skyIshier/Sky-.bin-reader-python-zh)
 
-**GUI 界面与纹理管线** 由 lingyunalingyun 开发。
+**GUI、bin 解析器、纹理管线** 由 lingyunalingyun 开发。
 
 ## 许可证
 
