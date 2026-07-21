@@ -15,7 +15,8 @@ A graphical interface that wraps the community's existing map-parsing scripts, a
 - **Visual map selection** — scene-grouped tree with per-map checkboxes
 - **Marker class filtering** — background scan with progress bar, pick which marker types to export
 - **Texture extraction** — KTX (BC6H) → PNG conversion, UV mapping in OBJ, material references in MTL
-- **Script manager** — view, open, and swap the underlying parsing scripts
+- **Pluggable backend system** — swap between pure Python and native parsers at runtime; zero dependencies by default
+- **Script manager** — switch active backends, import custom scripts, view module info
 - **DPI-aware rendering** — crisp UI on high-DPI / scaled displays
 - **Sky-styled dark theme** — deep navy palette inspired by the game's visual identity
 
@@ -32,10 +33,12 @@ A graphical interface that wraps the community's existing map-parsing scripts, a
 Python 3.8+
 
 ```bash
-pip install lz4 meshoptimizer texture2ddecoder Pillow
+pip install texture2ddecoder Pillow
 ```
 
-`texture2ddecoder` and `Pillow` are only needed for texture export. The rest works without them.
+`texture2ddecoder` and `Pillow` are only needed for texture export.
+
+`lz4` and `meshoptimizer` are optional — SkyVEx includes pure Python fallbacks that work out of the box.
 
 <details>
 <summary>Termux (Android) — CLI scripts only, no GUI</summary>
@@ -94,6 +97,13 @@ tool/scripts/
 │  [Original — lingyunalingyun, format research by Miau]
 ├── bintojson.py               # TGCL .bin → .json parser
 │
+│  [Original — lingyunalingyun]
+├── backends.py                # Pluggable backend registry
+├── mesh_parser.py             # Pure Python .mesh parser (all versions)
+│
+│  [Upstream — that-sky-project, LGPL 2.1]
+├── meshes2obj_json.py         # Pure Python .meshes parser (GEO0 segment)
+│
 │  [Upstream — original authors, see NOTICE]
 ├── Sky_Bstbake.py             # Core terrain parser
 ├── sky_mesh_to_obj.py         # .mesh parser v2 (v31/v32)
@@ -111,7 +121,7 @@ The following upstream files were modified. All changes are clearly marked in th
 
 | File | What was changed |
 |------|-----------------|
-| `batch_export.py` | Added texture extraction pipeline: `extract_texture_name()`, `convert_ktx_to_png()`, `find_ktx_file()`; OBJ output now includes `vt` (UV coords) and `f v/vt` format; MTL output includes `map_Kd` texture references; `export_single_map()` accepts `image_dirs` parameter |
+| `batch_export.py` | Added texture extraction pipeline: `extract_texture_name()`, `convert_ktx_to_png()`, `find_ktx_file()`; OBJ output now includes `vt` (UV coords) and `f v/vt` format; MTL output includes `map_Kd` texture references; `export_single_map()` accepts `image_dirs` parameter; refactored to delegate parsing through backends.py instead of hardcoded imports |
 | `launcher.py` | Added optional `output_dir` parameter to `export_map()` |
 | `Sky_Bstbake.py` | Fixed meshoptimizer parameter order |
 
@@ -141,7 +151,7 @@ The output `dist/SkyVEx.exe` can be placed in the project root. Python must stil
 
 | Problem | Fix |
 |---------|-----|
-| `lz4` / `meshoptimizer` not found | `pip install lz4 meshoptimizer` |
+| `lz4` / `meshoptimizer` not found | Optional: `pip install lz4 meshoptimizer` (pure Python fallbacks work without them) |
 | Terrain 0 vertices | Check meshoptimizer install; Windows: put `meshopt2.dll` in `_meshopt/` |
 | Models missing | Need `.mesh` files extracted from game assets |
 | Texture export fails | `pip install texture2ddecoder Pillow` |
@@ -153,11 +163,15 @@ The output `dist/SkyVEx.exe` can be placed in the project root. Python must stil
 - checion (雨人) & Heriel (落秋) — [SkyBstbake](https://github.com/ThatSkyOldServer/SkyBstbake)
 - Miau — TGCL format research, [Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
 - potato — scripts
+- that-sky-project — [that-sky-level-meshes](https://github.com/that-sky-project/that-sky-level-meshes) (meshes2obj_json.py, LGPL 2.1)
+- kfhammond — [SkyModelViewer](https://github.com/kfhammond/SkyModelViewer) (format reference for mesh_parser.py)
 
-**GUI, bin parser, and texture pipeline** by lingyunalingyun.
+**GUI, bin parser, texture pipeline, backend system, and mesh_parser** by lingyunalingyun.
 
 ## License
 
 The SkyVEx GUI and texture pipeline code (`gui.py` and additions to `batch_export.py`) are released under the MIT License — see [LICENSE](./LICENSE).
 
 The upstream parsing scripts retain their original MIT licenses — see [NOTICE](./NOTICE) for details.
+
+`meshes2obj_json.py` is licensed under LGPL 2.1 — see its file header for details.

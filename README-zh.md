@@ -15,7 +15,8 @@
 - **可视化地图选择** — 按场景分组的树形列表，支持单选/全选
 - **标记类名筛选** — 后台扫描带进度条，自由勾选要导出的标记类型
 - **纹理提取** — KTX (BC6H) → PNG 转换，OBJ 内 UV 映射，MTL 材质引用
-- **解析模块管理** — 查看、打开、更换底层解析脚本
+- **可插拔后端系统** — 运行时切换纯 Python / 原生解析器，默认零依赖
+- **解析模块管理** — 切换后端、导入自定义脚本、查看模块说明
 - **高 DPI 适配** — 高分屏 / 缩放显示下界面清晰不模糊
 - **光遇风格暗色主题** — 深蓝配色，还原游戏视觉风格
 
@@ -32,10 +33,12 @@
 Python 3.8+
 
 ```bash
-pip install lz4 meshoptimizer texture2ddecoder Pillow
+pip install texture2ddecoder Pillow
 ```
 
-`texture2ddecoder` 和 `Pillow` 仅纹理导出需要，不用纹理功能可以不装。
+`texture2ddecoder` 和 `Pillow` 仅纹理导出需要。
+
+`lz4` 和 `meshoptimizer` 为可选依赖 — SkyVEx 内置纯 Python 回退，开箱即用无需额外安装。
 
 <details>
 <summary>Termux (Android) — 仅命令行脚本，无 GUI</summary>
@@ -94,6 +97,13 @@ tool/scripts/
 │  [原创 — lingyunalingyun，格式研究来自 Miau]
 ├── bintojson.py               # TGCL .bin → .json 解析器
 │
+│  [原创 — lingyunalingyun]
+├── backends.py                # 可插拔后端注册层
+├── mesh_parser.py             # 纯 Python .mesh 解析器（全版本）
+│
+│  [上游 — that-sky-project, LGPL 2.1]
+├── meshes2obj_json.py         # 纯 Python .meshes 解析器（GEO0 段）
+│
 │  [上游 — 原作者，详见 NOTICE]
 ├── Sky_Bstbake.py             # 核心地形解析器
 ├── sky_mesh_to_obj.py         # .mesh 解析器 v2 (v31/v32)
@@ -111,7 +121,7 @@ tool/scripts/
 
 | 文件 | 修改内容 |
 |------|---------|
-| `batch_export.py` | 添加纹理提取管线：`extract_texture_name()`、`convert_ktx_to_png()`、`find_ktx_file()`；OBJ 输出增加 `vt`（UV 坐标）和 `f v/vt` 格式；MTL 输出增加 `map_Kd` 纹理引用；`export_single_map()` 增加 `image_dirs` 参数 |
+| `batch_export.py` | 添加纹理提取管线：`extract_texture_name()`、`convert_ktx_to_png()`、`find_ktx_file()`；OBJ 输出增加 `vt`（UV 坐标）和 `f v/vt` 格式；MTL 输出增加 `map_Kd` 纹理引用；`export_single_map()` 增加 `image_dirs` 参数；改为通过 backends.py 分发解析任务，不再硬编码导入 |
 | `launcher.py` | `export_map()` 添加可选 `output_dir` 参数 |
 | `Sky_Bstbake.py` | 修复 meshoptimizer 参数顺序 |
 
@@ -141,7 +151,7 @@ pyinstaller --onefile --noconsole --icon=icon.ico --name SkyVEx SkyVEx.py
 
 | 问题 | 解决 |
 |------|------|
-| 缺少 `lz4` / `meshoptimizer` | `pip install lz4 meshoptimizer` |
+| 缺少 `lz4` / `meshoptimizer` | 可选: `pip install lz4 meshoptimizer`（不装也能用，内置纯 Python 回退） |
 | 地形 0 顶点 | 检查 meshoptimizer 安装；Windows 将 `meshopt2.dll` 放入 `_meshopt/` |
 | 模型缺失 | 需从游戏资源包中提取 `.mesh` 文件 |
 | 纹理导出失败 | `pip install texture2ddecoder Pillow` |
@@ -153,11 +163,15 @@ pyinstaller --onefile --noconsole --icon=icon.ico --name SkyVEx SkyVEx.py
 - checion (雨人) & Heriel (落秋) — [SkyBstbake](https://github.com/ThatSkyOldServer/SkyBstbake)
 - Miau — TGCL 格式研究、[Sky-.bin-reader](https://github.com/Miau0x1/Sky-.bin-reader)
 - potato — 脚本
+- that-sky-project — [that-sky-level-meshes](https://github.com/that-sky-project/that-sky-level-meshes)（meshes2obj_json.py, LGPL 2.1）
+- kfhammond — [SkyModelViewer](https://github.com/kfhammond/SkyModelViewer)（mesh_parser.py 的格式参考）
 
-**GUI、bin 解析器、纹理管线** 由 lingyunalingyun 开发。
+**GUI、bin 解析器、纹理管线、后端系统、mesh_parser** 由 lingyunalingyun 开发。
 
 ## 许可证
 
 SkyVEx 的 GUI 和纹理管线代码（`gui.py` 及 `batch_export.py` 中的新增部分）以 MIT 许可证发布 — 见 [LICENSE](./LICENSE)。
 
 上游解析脚本保留其原始 MIT 许可证 — 见 [NOTICE](./NOTICE)。
+
+`meshes2obj_json.py` 以 LGPL 2.1 许可证发布 — 详见文件头注释。
