@@ -48,6 +48,10 @@ pip install lz4 meshoptimizer
 
 ### GUI（推荐）
 
+**Windows：** 双击项目根目录的 `SkyVEx.exe` 即可启动。
+
+或通过命令行运行：
+
 ```bash
 cd tool/scripts
 python gui.py
@@ -72,6 +76,9 @@ python bintojson.py Objects.level.bin   # bin → json
 ## 文件结构与版权归属
 
 ```
+SkyVEx.exe                         # Windows 启动器（由 SkyVEx.py 构建）
+SkyVEx.py                          # 启动器入口脚本
+│
 tool/scripts/
 │
 │  [原创 — lingyunalingyun]
@@ -115,6 +122,17 @@ tool/scripts/
 | 模型 | 场景物体，已应用变换矩阵，Z 轴翻转适配 Blender |
 | 标记 | 交互点位置的彩色球体（可选） |
 | 纹理 | PNG 文件 + MTL 材质引用（可选） |
+
+## 构建 exe
+
+需要 [PyInstaller](https://pyinstaller.org/)：
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --noconsole --name SkyVEx SkyVEx.py
+```
+
+生成的 `dist/SkyVEx.exe` 放到项目根目录即可。目标机器仍需安装 Python — exe 只是启动器，不是独立打包。
 
 ## 常见问题
 

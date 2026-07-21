@@ -48,6 +48,10 @@ pip install lz4 meshoptimizer
 
 ### GUI (recommended)
 
+**Windows:** Double-click `SkyVEx.exe` in the project root.
+
+Or run from the command line:
+
 ```bash
 cd tool/scripts
 python gui.py
@@ -72,6 +76,9 @@ python bintojson.py Objects.level.bin   # bin → json
 ## File structure & copyright
 
 ```
+SkyVEx.exe                         # Windows launcher (build from SkyVEx.py)
+SkyVEx.py                          # Launcher entry point
+│
 tool/scripts/
 │
 │  [Original — lingyunalingyun]
@@ -115,6 +122,17 @@ All other upstream scripts are included **unmodified** from their original repos
 | Models | Scene objects with transforms applied, Z-flipped for Blender |
 | Markers | Colored spheres at interaction points (optional) |
 | Textures | PNG files + MTL material references (optional) |
+
+## Building the exe
+
+Requires [PyInstaller](https://pyinstaller.org/):
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --noconsole --name SkyVEx SkyVEx.py
+```
+
+The output `dist/SkyVEx.exe` can be placed in the project root. Python must still be installed on the target machine — the exe is just a launcher, not a standalone bundle.
 
 ## Troubleshooting
 
