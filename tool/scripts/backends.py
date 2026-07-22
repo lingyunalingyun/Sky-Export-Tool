@@ -27,7 +27,7 @@ class MeshesBackend:
         return set()
 
     def parse_to_obj_data(self, meshes_file):
-        """Parse .meshes → (verts, faces). verts=[(x,y,z),...], faces=[(i,j,k),...]"""
+        """Parse .meshes → (verts, faces, colors). colors=[(r,g,b),...] 0-1, may be empty."""
         raise NotImplementedError
 
     def parse_to_json(self, meshes_file):
@@ -97,6 +97,34 @@ class BstBakeMeshesBackend(MeshesBackend):
         "与 meshes2obj_json 互补: 两者解析的是同一文件的\n"
         "不同数据段 (LOD0 vs GEO0)，输出的顶点数和面数不同。"
     )
+
+    _MAT_COLORS = {
+        16: (0.18, 0.22, 0.42), 17: (0.20, 0.25, 0.45),
+        18: (0.15, 0.18, 0.38), 28: (0.45, 0.42, 0.25),
+        32: (0.72, 0.62, 0.35), 33: (0.68, 0.58, 0.32),
+        35: (0.65, 0.55, 0.30), 48: (0.35, 0.55, 0.20),
+        50: (0.30, 0.50, 0.18), 80: (0.12, 0.12, 0.18),
+    }
+    _MAT_DEFAULT = (0.5, 0.5, 0.5)
+
+    @staticmethod
+    def _blend_color(materials, ao_brightness):
+        r = g = b = 0.0
+        total_w = 0
+        mc = BstBakeMeshesBackend._MAT_COLORS
+        md = BstBakeMeshesBackend._MAT_DEFAULT
+        for mid, mw in materials:
+            if mw <= 0:
+                continue
+            c = mc.get(mid, md)
+            r += c[0] * mw; g += c[1] * mw; b += c[2] * mw
+            total_w += mw
+        if total_w > 0:
+            r /= total_w; g /= total_w; b /= total_w
+        else:
+            r, g, b = md
+        ao = max(ao_brightness / 255.0, 0.3)
+        return (r * ao, g * ao, b * ao)
 
     def __init__(self):
         self._parse_and_split = None
@@ -175,6 +203,7 @@ class BstBakeMeshesBackend(MeshesBackend):
 
         all_verts = []
         all_faces = []
+        all_colors = []
 
         for section in ['terrain', 'skirts', 'occluder']:
             for chunk in result.get(section, []):
@@ -197,8 +226,13 @@ class BstBakeMeshesBackend(MeshesBackend):
                         for vi in range(vs, ve):
                             if vi not in vert_indices:
                                 vert_indices[vi] = new_idx
-                                pos = verts[vi].get('pos', (0, 0, 0))
+                                v = verts[vi]
+                                pos = v.get('pos', (0, 0, 0))
                                 all_verts.append((-pos[0], pos[1], -pos[2]))
+                                vc = v.get('v_color', (200, 200, 200, 255))
+                                mats = v.get('materials', [])
+                                ao = max(vc[0], vc[1], vc[2])
+                                all_colors.append(self._blend_color(mats, ao))
                                 new_idx += 1
 
                     for patch in terrain_patches:
@@ -226,11 +260,15 @@ class BstBakeMeshesBackend(MeshesBackend):
                     for v in verts:
                         pos = v.get('pos', (0, 0, 0))
                         all_verts.append((-pos[0], pos[1], -pos[2]))
+                        vc = v.get('v_color', (200, 200, 200, 255))
+                        mats = v.get('materials', [])
+                        ao = max(vc[0], vc[1], vc[2])
+                        all_colors.append(self._blend_color(mats, ao))
                     for i in range(0, len(indices), 3):
                         if i + 2 < len(indices):
                             all_faces.append((indices[i] + base_v, indices[i+2] + base_v, indices[i+1] + base_v))
 
-        return all_verts, all_faces
+        return all_verts, all_faces, all_colors
 
 
 # ── Built-in backend: meshes2obj_json (pure Python) ───────
@@ -294,14 +332,14 @@ class PurePythonMeshesBackend(MeshesBackend):
     def parse_to_obj_data(self, meshes_file):
         self._load()
         if not self._mod:
-            return [], []
+            return [], [], []
         try:
             with open(meshes_file, 'rb') as f:
                 buf = f.read()
             meshes = self._mod.LevelMeshes.from_file_buffer(buf)
             geo = meshes.geo
             if not geo or geo.vertex_count == 0:
-                return [], []
+                return [], [], []
 
             all_verts = []
             all_faces = []
@@ -323,9 +361,9 @@ class PurePythonMeshesBackend(MeshesBackend):
                     all_faces.append((a, b, c))
                     j += 3
 
-            return all_verts, all_faces
+            return all_verts, all_faces, []
         except Exception:
-            return [], []
+            return [], [], []
 
     def parse_to_json(self, meshes_file):
         self._load()

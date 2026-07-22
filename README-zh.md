@@ -12,7 +12,9 @@
 
 - **一键扫描游戏目录** — 选择游戏安装路径，自动识别所有地图和 Mesh 文件
 - **APK 提取** — 直接打开光遇 APK 安装包，无需 PC 端游戏即可提取资源
-- **可视化地图选择** — 按场景分组的树形列表，支持单选/全选
+- **可视化资源浏览** — 按场景分组的地图树 + 按前缀分组的模型库（4000+ 个独立模型）
+- **3D 预览** — 实时 OpenGL 预览，支持地形顶点着色（材质混合 + AO）和顶部柔光；点击任意地图或模型即可预览
+- **独立模型导出** — 浏览并批量导出单个 `.mesh` 模型（道具、角色、物件）为 OBJ，不限于地形地图
 - **标记类名筛选** — 后台扫描带进度条，自由勾选要导出的标记类型
 - **纹理提取** — KTX (BC6H) → PNG 转换，OBJ 内 UV 映射，MTL 材质引用
 - **可插拔后端系统** — 运行时切换纯 Python / 原生解析器，默认零依赖
@@ -33,10 +35,12 @@
 Python 3.8+
 
 ```bash
-pip install texture2ddecoder Pillow
+pip install texture2ddecoder Pillow PyOpenGL PyOpenGL_accelerate
 ```
 
 `texture2ddecoder` 和 `Pillow` 仅纹理导出需要。
+
+`PyOpenGL` 和 `PyOpenGL_accelerate` 仅 3D 预览需要。
 
 `lz4` 和 `meshoptimizer` 为可选依赖 — SkyVEx 内置纯 Python 回退，开箱即用无需额外安装。
 
@@ -64,9 +68,10 @@ python gui.py
 ```
 
 1. **浏览** 选择游戏安装目录，点击 **扫描** — 或点击 **APK** 直接打开 APK 安装包
-2. 在树形列表中勾选要导出的地图
-3. 按需开关标记小球、纹理导出，设置输出目录
-4. 点击 **开始导出**
+2. 在资源树中浏览地图和模型（展开「模型库」查看独立模型）
+3. 勾选 **3D 预览** 实时查看任意地图或模型的 OpenGL 渲染效果
+4. 按需开关标记小球、纹理导出，设置输出目录
+5. 点击 **开始导出** — 同时导出选中的地图和独立模型
 
 ### 命令行（原始脚本）
 
@@ -89,6 +94,7 @@ tool/scripts/
 │
 │  [原创 — lingyunalingyun]
 ├── gui.py                     # 可视化界面 & 纹理管线
+├── preview3d.py               # OpenGL 3D 预览面板
 │
 │  [上游 + 修改 — 详见文件头注释]
 ├── batch_export.py            # 批量导出引擎（+ 纹理管线）
@@ -131,8 +137,9 @@ tool/scripts/
 
 | 数据 | 说明 |
 |------|------|
-| 地形 | 地面网格，带法线和顶点颜色 |
-| 模型 | 场景物体，已应用变换矩阵，Z 轴翻转适配 Blender |
+| 地形 | 地面网格，材质混合顶点着色 + AO |
+| 模型（地图内） | 场景物体，已应用变换矩阵，Z 轴翻转适配 Blender |
+| 模型（独立） | 单个 `.mesh` 文件导出至 `Meshes/` 子文件夹，含 UV |
 | 标记 | 交互点位置的彩色球体（可选） |
 | 纹理 | PNG 文件 + MTL 材质引用（可选） |
 
@@ -155,6 +162,7 @@ pyinstaller --onefile --noconsole --icon=icon.ico --name SkyVEx SkyVEx.py
 | 地形 0 顶点 | 检查 meshoptimizer 安装；Windows 将 `meshopt2.dll` 放入 `_meshopt/` |
 | 模型缺失 | 需从游戏资源包中提取 `.mesh` 文件 |
 | 纹理导出失败 | `pip install texture2ddecoder Pillow` |
+| 3D 预览不可用 | `pip install PyOpenGL PyOpenGL_accelerate` |
 
 ## 致谢
 
@@ -166,7 +174,7 @@ pyinstaller --onefile --noconsole --icon=icon.ico --name SkyVEx SkyVEx.py
 - that-sky-project — [that-sky-level-meshes](https://github.com/that-sky-project/that-sky-level-meshes)（meshes2obj_json.py, LGPL 2.1）
 - kfhammond — [SkyModelViewer](https://github.com/kfhammond/SkyModelViewer)（mesh_parser.py 的格式参考）
 
-**GUI、bin 解析器、纹理管线、后端系统、mesh_parser** 由 lingyunalingyun 开发。
+**GUI、3D 预览、bin 解析器、纹理管线、后端系统、mesh_parser** 由 lingyunalingyun 开发。
 
 ## 许可证
 

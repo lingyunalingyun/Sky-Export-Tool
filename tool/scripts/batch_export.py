@@ -43,7 +43,7 @@ def _init_backends(preferred_meshes=None, preferred_mesh=None):
     if preferred_meshes and preferred_meshes in meshes_avail:
         _active_meshes_backend = meshes_avail[preferred_meshes]
     elif meshes_avail:
-        for pref in ["meshes2obj_json", "bstbake"]:
+        for pref in ["bstbake", "meshes2obj_json"]:
             if pref in meshes_avail:
                 _active_meshes_backend = meshes_avail[pref]
                 break
@@ -189,12 +189,12 @@ def find_mesh_file(mesh_folder, resource_name):
 # ============================================================
 def parse_meshes_to_obj_data(meshes_file):
     if _active_meshes_backend is None:
-        return [], []
+        return [], [], []
     try:
         return _active_meshes_backend.parse_to_obj_data(meshes_file)
     except Exception as e:
         print(f"    解析失败 ({_active_meshes_backend.name}): {e}")
-        return [], []
+        return [], [], []
 
 # ============================================================
 # 模型解析（通过 backend 分发）
@@ -510,7 +510,7 @@ def export_single_map(map_folder, mesh_folder, output_base_dir, export_markers, 
     # 5. 地形
     terrain_verts, terrain_faces = [], []
     if meshes_file and _active_meshes_backend:
-        terrain_verts, terrain_faces = parse_meshes_to_obj_data(meshes_file)
+        terrain_verts, terrain_faces, _colors = parse_meshes_to_obj_data(meshes_file)
     log_entry['terrain_verts'] = len(terrain_verts)
     log_entry['terrain_tris'] = len(terrain_faces)
     

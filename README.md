@@ -12,7 +12,9 @@ A graphical interface that wraps the community's existing map-parsing scripts, a
 
 - **One-click game directory scanning** — point at your game install, auto-discover all maps and mesh files
 - **APK extraction** — open a Sky APK directly and extract game assets without a PC install
-- **Visual map selection** — scene-grouped tree with per-map checkboxes
+- **Visual resource browser** — scene-grouped map tree + model library with 4000+ individual meshes grouped by prefix
+- **3D preview** — real-time OpenGL preview with vertex colors (terrain material blending) and top-down soft lighting; click any map or model to preview
+- **Individual mesh export** — browse and batch-export standalone `.mesh` models (props, characters, items) to OBJ, not just terrain maps
 - **Marker class filtering** — background scan with progress bar, pick which marker types to export
 - **Texture extraction** — KTX (BC6H) → PNG conversion, UV mapping in OBJ, material references in MTL
 - **Pluggable backend system** — swap between pure Python and native parsers at runtime; zero dependencies by default
@@ -33,10 +35,12 @@ A graphical interface that wraps the community's existing map-parsing scripts, a
 Python 3.8+
 
 ```bash
-pip install texture2ddecoder Pillow
+pip install texture2ddecoder Pillow PyOpenGL PyOpenGL_accelerate
 ```
 
 `texture2ddecoder` and `Pillow` are only needed for texture export.
+
+`PyOpenGL` and `PyOpenGL_accelerate` are only needed for 3D preview.
 
 `lz4` and `meshoptimizer` are optional — SkyVEx includes pure Python fallbacks that work out of the box.
 
@@ -64,9 +68,10 @@ python gui.py
 ```
 
 1. **Browse** to your game install directory, click **Scan** — or click **APK** to open an APK file directly
-2. Check/uncheck maps in the tree
-3. Toggle markers, textures, adjust output directory
-4. Click **Start Export**
+2. Browse maps and models in the resource tree (expand "模型库" for individual meshes)
+3. Toggle **3D Preview** to preview any map or model with real-time OpenGL rendering
+4. Toggle markers, textures, adjust output directory
+5. Click **Start Export** — exports both selected maps and individual models
 
 ### CLI (original scripts)
 
@@ -89,6 +94,7 @@ tool/scripts/
 │
 │  [Original — lingyunalingyun]
 ├── gui.py                     # GUI frontend & texture pipeline
+├── preview3d.py               # OpenGL 3D preview panel
 │
 │  [Upstream + Modified — see headers for details]
 ├── batch_export.py            # Batch export engine (+ texture pipeline)
@@ -131,8 +137,9 @@ All other upstream scripts are included **unmodified** from their original repos
 
 | Data | Description |
 |------|-------------|
-| Terrain | Ground mesh with normals and vertex colors |
-| Models | Scene objects with transforms applied, Z-flipped for Blender |
+| Terrain | Ground mesh with material-blended vertex colors and AO |
+| Models (in-map) | Scene objects with transforms applied, Z-flipped for Blender |
+| Models (standalone) | Individual `.mesh` files exported to `Meshes/` subfolder with UVs |
 | Markers | Colored spheres at interaction points (optional) |
 | Textures | PNG files + MTL material references (optional) |
 
@@ -155,6 +162,7 @@ The output `dist/SkyVEx.exe` can be placed in the project root. Python must stil
 | Terrain 0 vertices | Check meshoptimizer install; Windows: put `meshopt2.dll` in `_meshopt/` |
 | Models missing | Need `.mesh` files extracted from game assets |
 | Texture export fails | `pip install texture2ddecoder Pillow` |
+| 3D preview not available | `pip install PyOpenGL PyOpenGL_accelerate` |
 
 ## Credits
 
@@ -166,7 +174,7 @@ The output `dist/SkyVEx.exe` can be placed in the project root. Python must stil
 - that-sky-project — [that-sky-level-meshes](https://github.com/that-sky-project/that-sky-level-meshes) (meshes2obj_json.py, LGPL 2.1)
 - kfhammond — [SkyModelViewer](https://github.com/kfhammond/SkyModelViewer) (format reference for mesh_parser.py)
 
-**GUI, bin parser, texture pipeline, backend system, and mesh_parser** by lingyunalingyun.
+**GUI, 3D preview, bin parser, texture pipeline, backend system, and mesh_parser** by lingyunalingyun.
 
 ## License
 

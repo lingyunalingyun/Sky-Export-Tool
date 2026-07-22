@@ -213,21 +213,12 @@ class SkyExportGUI:
 
         # ── left: map list ──
         map_frame = ttk.LabelFrame(
-            mid_frame, text="地图列表", padding=(8, 4, 8, 6)
+            mid_frame, text="资源列表", padding=(8, 4, 8, 6)
         )
         map_frame.pack(side="left", fill="both", expand=True)
 
         map_toolbar = ttk.Frame(map_frame)
         map_toolbar.pack(fill="x", pady=(0, 4))
-        ttk.Button(
-            map_toolbar, text="全选", width=5, command=self._select_all_maps
-        ).pack(side="left")
-        ttk.Button(
-            map_toolbar,
-            text="全不选",
-            width=5,
-            command=self._deselect_all_maps,
-        ).pack(side="left", padx=(4, 0))
         self.map_count_label = ttk.Label(
             map_toolbar, text="", foreground="#6b7080", font=("Segoe UI", 8)
         )
@@ -317,27 +308,6 @@ class SkyExportGUI:
         )
         marker_frame.pack(fill="both", expand=True, pady=(6, 0))
 
-        mk_toolbar = ttk.Frame(marker_frame)
-        mk_toolbar.pack(fill="x", pady=(0, 4))
-        self.scan_mk_btn = ttk.Button(
-            mk_toolbar, text="扫描", command=self._scan_markers
-        )
-        self.scan_mk_btn.pack(side="left")
-        self.sel_all_mk_btn = ttk.Button(
-            mk_toolbar,
-            text="全选",
-            width=5,
-            command=self._select_all_markers,
-        )
-        self.sel_all_mk_btn.pack(side="left", padx=(6, 0))
-        self.desel_all_mk_btn = ttk.Button(
-            mk_toolbar,
-            text="全不选",
-            width=5,
-            command=self._deselect_all_markers,
-        )
-        self.desel_all_mk_btn.pack(side="left", padx=(4, 0))
-
         self.marker_tree = ttk.Treeview(
             marker_frame, show="tree", selectmode="none",
             style="Map.Treeview",
@@ -349,7 +319,6 @@ class SkyExportGUI:
         self.marker_tree.configure(yscrollcommand=marker_scroll.set)
         self.marker_tree.pack(side="left", fill="both", expand=True)
         marker_scroll.pack(side="right", fill="y")
-        self.marker_tree.bind("<Button-1>", self._on_marker_click)
 
         # buttons
         btn_frame = ttk.Frame(self.root, padding=(16, 8, 16, 0))
@@ -377,6 +346,22 @@ class SkyExportGUI:
         ttk.Button(
             btn_frame, text="打开输出目录", command=self._open_output
         ).pack(side="right", padx=(0, 8))
+
+        # preview toggle
+        self._preview_panel = None
+        self._preview_frame = None
+        self._preview_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            btn_frame, text="3D 预览",
+            variable=self._preview_var,
+            command=self._toggle_preview,
+        ).pack(side="right", padx=(0, 8))
+
+        # preview container (right of mid_frame, hidden by default)
+        self._mid_frame = mid_frame
+        self._preview_container = ttk.LabelFrame(
+            mid_frame, text="3D 预览", padding=(0, 0, 0, 0),
+        )
 
         # progress
         self.progress = ttk.Progressbar(self.root, mode="indeterminate")
@@ -507,12 +492,13 @@ class SkyExportGUI:
 
         # auto-detect mesh dir
         mesh_dir = os.path.join(assets_dir, "meshes", "Data", "Meshes", "Bin")
+        mesh_files = []
         if os.path.isdir(mesh_dir):
             self.mesh_var.set(mesh_dir)
-            mesh_count = sum(
-                1 for f in os.listdir(mesh_dir) if f.endswith(".mesh")
+            mesh_files = sorted(
+                f for f in os.listdir(mesh_dir) if f.endswith(".mesh")
             )
-            self._log(f"[OK] Mesh 目录: {mesh_count} 个 .mesh 文件\n")
+            self._log(f"[OK] Mesh 目录: {len(mesh_files)} 个 .mesh 文件\n")
 
         # scan scenes
         try:
@@ -550,12 +536,15 @@ class SkyExportGUI:
                 self.map_entries[scene] = maps
                 total_maps += len(maps)
 
-        self._populate_map_list()
+        self._populate_map_list(mesh_files, mesh_dir)
         self._log(
-            f"[OK] 扫描完成: {len(self.map_entries)} 个区域, {total_maps} 张地图\n"
+            f"[OK] 扫描完成: {len(self.map_entries)} 个区域, {total_maps} 张地图, {len(mesh_files)} 个模型\n"
         )
 
-    def _populate_map_list(self):
+        if total_maps > 0:
+            self._scan_markers()
+
+    def _populate_map_list(self, mesh_files=None, mesh_dir=None):
         self.map_tree.delete(*self.map_tree.get_children())
         self.map_data.clear()
 
@@ -563,18 +552,49 @@ class SkyExportGUI:
             display = SCENE_DISPLAY.get(scene, scene)
             sid = self.map_tree.insert(
                 "", "end",
-                text=f"☑ {display} ({scene}) — {len(maps)} 张",
+                text=f"{display} ({scene}) — {len(maps)} 张",
                 open=True,
             )
             self.map_data[sid] = {"scene": scene, "selected": True}
 
             for name, path in maps:
-                iid = self.map_tree.insert(sid, "end", text=f"☑ {name}")
+                iid = self.map_tree.insert(sid, "end", text=name)
                 self.map_data[iid] = {
                     "name": name, "path": path, "selected": True,
                 }
 
+        if mesh_files and mesh_dir:
+            self._populate_mesh_entries(mesh_files, mesh_dir)
+
         self._update_map_count()
+
+    def _populate_mesh_entries(self, mesh_files, mesh_dir):
+        groups = OrderedDict()
+        for f in mesh_files:
+            name = f[:-5]
+            prefix = re.match(r'^([A-Za-z]+\d*)', name)
+            group = prefix.group(1) if prefix else "Other"
+            groups.setdefault(group, []).append((name, os.path.join(mesh_dir, f)))
+
+        root_id = self.map_tree.insert(
+            "", "end",
+            text=f"模型库 — {len(mesh_files)} 个模型",
+            open=False,
+        )
+        self.map_data[root_id] = {"mesh_root": True}
+
+        for group, items in groups.items():
+            gid = self.map_tree.insert(
+                root_id, "end",
+                text=f"{group} ({len(items)})",
+                open=False,
+            )
+            self.map_data[gid] = {"mesh_group": group}
+            for name, path in items:
+                iid = self.map_tree.insert(gid, "end", text=name)
+                self.map_data[iid] = {
+                    "name": name, "mesh_file": path, "selected": True,
+                }
 
     def _on_map_click(self, event):
         iid = self.map_tree.identify_row(event.y)
@@ -582,67 +602,47 @@ class SkyExportGUI:
             return
 
         data = self.map_data[iid]
-        new_val = not data["selected"]
-        data["selected"] = new_val
-        prefix = "☑" if new_val else "☐"
-        old_text = self.map_tree.item(iid, "text")
-        self.map_tree.item(iid, text=prefix + old_text[1:])
 
-        if "scene" in data:
-            for child in self.map_tree.get_children(iid):
-                self.map_data[child]["selected"] = new_val
-                ct = self.map_tree.item(child, "text")
-                self.map_tree.item(child, text=prefix + ct[1:])
-
-        self._update_map_count()
-
-    def _set_all_maps(self, val):
-        prefix = "☑" if val else "☐"
-        for iid, data in self.map_data.items():
-            data["selected"] = val
-            t = self.map_tree.item(iid, "text")
-            self.map_tree.item(iid, text=prefix + t[1:])
-        self._update_map_count()
-
-    def _select_all_maps(self):
-        self._set_all_maps(True)
-
-    def _deselect_all_maps(self):
-        self._set_all_maps(False)
+        if "path" in data:
+            if self._preview_panel:
+                self._load_preview_for_map(data["path"])
+        elif "mesh_file" in data:
+            if self._preview_panel:
+                self._load_preview_for_mesh(data["mesh_file"])
 
     def _update_map_count(self):
-        total = 0
-        selected = 0
-        for data in self.map_data.values():
-            if "path" in data:
-                total += 1
-                if data["selected"]:
-                    selected += 1
-        self.map_count_label.configure(text=f"已选 {selected}/{total}")
+        maps = sum(1 for d in self.map_data.values() if "path" in d)
+        meshes = sum(1 for d in self.map_data.values() if "mesh_file" in d)
+        parts = []
+        if maps:
+            parts.append(f"{maps} 张地图")
+        if meshes:
+            parts.append(f"{meshes} 个模型")
+        self.map_count_label.configure(text="共 " + ", ".join(parts) if parts else "")
 
     def _get_selected_maps(self):
         return [
             (d["name"], d["path"])
             for d in self.map_data.values()
-            if "path" in d and d["selected"]
+            if "path" in d
+        ]
+
+    def _get_selected_meshes(self):
+        return [
+            (d["name"], d["mesh_file"])
+            for d in self.map_data.values()
+            if "mesh_file" in d
         ]
 
     # ── marker scanning ───────────────────────────────────
     def _on_marker_toggle(self):
-        state = "normal" if self.marker_var.get() else "disabled"
-        self.scan_mk_btn.configure(state=state)
-        self.sel_all_mk_btn.configure(state=state)
-        self.desel_all_mk_btn.configure(state=state)
+        pass
 
     def _scan_markers(self):
         selected = self._get_selected_maps()
-        if not selected:
-            messagebox.showwarning("提示", "请先扫描游戏目录并选择至少一张地图")
-            return
-        if self.running:
+        if not selected or self.running:
             return
 
-        self.scan_mk_btn.configure(state="disabled")
         self.progress.configure(mode="determinate", maximum=len(selected), value=0)
         self._log(f"正在扫描标记类名 (0/{len(selected)})...\n")
 
@@ -699,42 +699,19 @@ class SkyExportGUI:
 
     def _scan_markers_tick(self, current, total):
         self.progress.configure(value=current)
-        self.scan_mk_btn.configure(text=f"{current}/{total}")
 
     def _scan_markers_done(self, class_names):
         self.progress.configure(mode="indeterminate", value=0)
-        self.scan_mk_btn.configure(state="normal", text="扫描")
         self._populate_marker_checkboxes(class_names)
-        self._log(f"[OK] 扫描完成: 找到 {len(class_names)} 个标记类名\n")
+        self._log(f"[OK] 标记扫描完成: 找到 {len(class_names)} 个标记类名\n")
 
     def _populate_marker_checkboxes(self, class_names):
         self.marker_tree.delete(*self.marker_tree.get_children())
         self.marker_vars.clear()
 
         for cn in class_names:
-            iid = self.marker_tree.insert("", "end", text=f"☑ {cn}")
+            iid = self.marker_tree.insert("", "end", text=cn)
             self.marker_vars[iid] = {"name": cn, "selected": True}
-
-    def _on_marker_click(self, event):
-        iid = self.marker_tree.identify_row(event.y)
-        if not iid or iid not in self.marker_vars:
-            return
-        data = self.marker_vars[iid]
-        data["selected"] = not data["selected"]
-        prefix = "☑" if data["selected"] else "☐"
-        self.marker_tree.item(iid, text=f"{prefix} {data['name']}")
-
-    def _set_all_markers(self, val):
-        prefix = "☑" if val else "☐"
-        for iid, data in self.marker_vars.items():
-            data["selected"] = val
-            self.marker_tree.item(iid, text=f"{prefix} {data['name']}")
-
-    def _select_all_markers(self):
-        self._set_all_markers(True)
-
-    def _deselect_all_markers(self):
-        self._set_all_markers(False)
 
     # ── module import ──────────────────────────────────────
 
@@ -775,6 +752,93 @@ class SkyExportGUI:
             self._log(f"[WARN] 模块加载失败: {e}\n")
 
     # ── script manager ─────────────────────────────────────
+    def _toggle_preview(self):
+        if self._preview_var.get():
+            self._show_preview()
+        else:
+            self._hide_preview()
+
+    def _show_preview(self):
+        if self._preview_panel:
+            return
+        try:
+            from preview3d import PreviewPanel, is_available
+            if not is_available():
+                self._log("[WARN] PyOpenGL 未安装，无法启用 3D 预览\n")
+                self._log("       pip install PyOpenGL PyOpenGL_accelerate\n")
+                self._preview_var.set(False)
+                return
+        except ImportError:
+            self._log("[WARN] preview3d.py 未找到\n")
+            self._preview_var.set(False)
+            return
+
+        self._preview_container.pack(
+            side="right", fill="both", expand=True, padx=(8, 0),
+        )
+        self._preview_panel = PreviewPanel(
+            self._preview_container,
+            on_close=self._on_preview_closed,
+        )
+        self._preview_panel.frame.pack(fill="both", expand=True)
+        self._log("[OK] 3D 预览面板已启用\n")
+
+        selected = self._get_selected_maps()
+        if selected:
+            self._load_preview_for_map(selected[0][1])
+
+    def _hide_preview(self):
+        if self._preview_panel:
+            self._preview_panel.destroy()
+            self._preview_panel = None
+        self._preview_container.pack_forget()
+
+    def _on_preview_closed(self):
+        self._preview_panel = None
+        self._preview_container.pack_forget()
+        self._preview_var.set(False)
+
+    def _load_preview_for_map(self, map_path):
+        if not self._preview_panel:
+            return
+        meshes_file = os.path.join(map_path, "BstBaked.meshes")
+        if not os.path.isfile(meshes_file):
+            self._log(f"[WARN] 未找到: {meshes_file}\n")
+            return
+
+        if self._batch_mod:
+            try:
+                verts, faces, colors = self._batch_mod.parse_meshes_to_obj_data(meshes_file)
+                if verts and faces:
+                    self._preview_panel.load_mesh(verts, faces, colors=colors, flip_normals=True)
+                    name = os.path.basename(os.path.dirname(map_path)) or os.path.basename(map_path)
+                    self._log(f"[OK] 预览: {name} ({len(verts):,} 顶点, {len(faces):,} 面)\n")
+                else:
+                    self._log(f"[WARN] 解析返回空数据: verts={len(verts)}, faces={len(faces)}\n")
+            except Exception as e:
+                import traceback
+                self._log(f"[WARN] 预览加载失败: {e}\n")
+                self._log(traceback.format_exc() + "\n")
+
+    def _load_preview_for_mesh(self, mesh_path):
+        if not self._preview_panel:
+            return
+        if not os.path.isfile(mesh_path):
+            self._log(f"[WARN] 未找到: {mesh_path}\n")
+            return
+
+        name = os.path.splitext(os.path.basename(mesh_path))[0]
+        if self._batch_mod:
+            try:
+                verts, uvs, faces = self._batch_mod.parse_mesh_file(mesh_path)
+                if verts and faces:
+                    self._preview_panel.load_mesh(verts, faces)
+                    self._log(f"[OK] 预览: {name} ({len(verts):,} 顶点, {len(faces):,} 面)\n")
+                else:
+                    self._log(f"[WARN] {name}: 无法解析 (不支持的格式或空数据)\n")
+            except Exception as e:
+                self._log(f"[WARN] {name}: 预览失败 — {e}\n")
+
     def _open_script_manager(self):
         win = tk.Toplevel(self.root)
         win.title("解析模块管理")
@@ -1040,8 +1104,9 @@ class SkyExportGUI:
             return
 
         selected = self._get_selected_maps()
-        if not selected:
-            messagebox.showwarning("提示", "请选择至少一张地图")
+        selected_meshes = self._get_selected_meshes()
+        if not selected and not selected_meshes:
+            messagebox.showwarning("提示", "请选择至少一张地图或一个模型")
             return
 
         mesh_dir = self.mesh_var.get().strip()
@@ -1051,7 +1116,7 @@ class SkyExportGUI:
         enabled_classes = None
         if export_markers and self.marker_vars:
             enabled_classes = [
-                d["name"] for d in self.marker_vars.values() if d["selected"]
+                d["name"] for d in self.marker_vars.values()
             ]
 
         image_dirs = None
@@ -1072,31 +1137,36 @@ class SkyExportGUI:
 
         t = threading.Thread(
             target=self._do_export,
-            args=(selected, mesh_dir, export_markers, enabled_classes, output_dir, image_dirs),
+            args=(selected, mesh_dir, export_markers, enabled_classes, output_dir, image_dirs, selected_meshes),
             daemon=True,
         )
         t.start()
 
     def _do_export(
-        self, selected, mesh_dir, export_markers, enabled_classes, output_dir, image_dirs
+        self, selected, mesh_dir, export_markers, enabled_classes,
+        output_dir, image_dirs, selected_meshes=None,
     ):
         redirector = StdoutRedirector(self.log_queue)
         old_out, old_err = sys.stdout, sys.stderr
         sys.stdout = redirector
         sys.stderr = redirector
         try:
-            if self._export_single_map_fn:
-                if not output_dir:
-                    game_dir = self.game_dir_var.get().strip()
-                    if game_dir:
-                        output_dir = os.path.join(game_dir, "Export_Output")
-                    else:
-                        output_dir = os.path.join(
-                            os.path.dirname(selected[0][1]), "输出"
-                        )
-                os.makedirs(output_dir, exist_ok=True)
-                self._last_output_dir = output_dir
+            if not output_dir:
+                game_dir = self.game_dir_var.get().strip()
+                if game_dir:
+                    output_dir = os.path.join(game_dir, "Export_Output")
+                elif selected:
+                    output_dir = os.path.join(
+                        os.path.dirname(selected[0][1]), "输出"
+                    )
+                elif selected_meshes:
+                    output_dir = os.path.join(
+                        os.path.dirname(selected_meshes[0][1]), "输出"
+                    )
+            os.makedirs(output_dir, exist_ok=True)
+            self._last_output_dir = output_dir
 
+            if selected and self._export_single_map_fn:
                 total = len(selected)
                 self.log_queue.put(f"开始导出 {total} 张地图\n\n")
                 success = 0
@@ -1135,15 +1205,64 @@ class SkyExportGUI:
                         self.log_queue.put(f"   ❌ {err}\n")
 
                 self.log_queue.put(
-                    f"\n批量导出完成: 成功 {success}/{total}，失败 {fail}\n"
+                    f"\n地图导出完成: 成功 {success}/{total}，失败 {fail}\n"
                 )
-            else:
+
+            if selected_meshes and self._batch_mod and self.running:
+                self._do_export_meshes(selected_meshes, output_dir)
+
+            if not self._export_single_map_fn and not self._batch_mod:
                 self.log_queue.put("❌ 导出模块未加载\n")
         except Exception as e:
             self.log_queue.put(f"\n❌ 导出出错: {e}\n")
         finally:
             sys.stdout, sys.stderr = old_out, old_err
             self.root.after(0, self._export_done)
+
+    def _do_export_meshes(self, selected_meshes, output_dir):
+        mesh_out = os.path.join(output_dir, "Meshes")
+        os.makedirs(mesh_out, exist_ok=True)
+
+        total = len(selected_meshes)
+        self.log_queue.put(f"\n开始导出 {total} 个独立模型\n\n")
+        success = 0
+        fail = 0
+
+        for i, (name, path) in enumerate(selected_meshes, 1):
+            if not self.running:
+                self.log_queue.put("\n⚠️ 已中止\n")
+                break
+            try:
+                verts, uvs, faces = self._batch_mod.parse_mesh_file(path)
+                if not verts or not faces:
+                    self.log_queue.put(f"[{i}/{total}] {name} — ❌ 空数据\n")
+                    fail += 1
+                    continue
+
+                obj_path = os.path.join(mesh_out, f"{name}.obj")
+                with open(obj_path, 'w', encoding='utf-8') as f:
+                    f.write(f"# Sky Mesh: {name}\n")
+                    f.write(f"o {name}\n")
+                    for v in verts:
+                        f.write(f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
+                    if uvs:
+                        for uv in uvs:
+                            f.write(f"vt {uv[0]:.6f} {uv[1]:.6f}\n")
+                    for tri in faces:
+                        if uvs:
+                            f.write(f"f {tri[0]+1}/{tri[0]+1} {tri[1]+1}/{tri[1]+1} {tri[2]+1}/{tri[2]+1}\n")
+                        else:
+                            f.write(f"f {tri[0]+1} {tri[1]+1} {tri[2]+1}\n")
+
+                self.log_queue.put(f"[{i}/{total}] {name} — ✅ {len(verts):,}v/{len(faces):,}t\n")
+                success += 1
+            except Exception as e:
+                self.log_queue.put(f"[{i}/{total}] {name} — ❌ {e}\n")
+                fail += 1
+
+        self.log_queue.put(
+            f"\n模型导出完成: 成功 {success}/{total}，失败 {fail}\n"
+        )
 
     def _export_done(self):
         self.running = False
